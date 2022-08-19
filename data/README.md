@@ -8,3 +8,4 @@ The downloaded data used for analyses is located in the `grts_project-budget-rep
 ##
 
 # Derived Data
+All derived data are located in the `clean_data` folder
