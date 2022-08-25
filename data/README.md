@@ -8,6 +8,9 @@ The downloaded data used for analyses are located in the `grts_project-budget-re
 ## NRSA and NLA data
 All water chemistry data from the National Aquatic Resource Surveys were downloaded from the [EPA website] (https://www.epa.gov/national-aquatic-resource-surveys/data-national-aquatic-resource-surveys) on DATE. 
 
+## Landcover data
+Landcover data were downloaded on DATE from WEBSITE
+
 ## Population data
 Census data (COLUMNS) from (WEBSITE) on (DATE)
 

@@ -90,7 +90,6 @@ for (i in 2:7){
   colsd<-sd(one.col)
   trans<-(one.col-colmean)/colsd
   z.scores[,i]<-trans
-  
 }
 
 states.pca<- vegan::rda(z.scores[,2:7])

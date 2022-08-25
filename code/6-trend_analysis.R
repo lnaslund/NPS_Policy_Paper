@@ -1,6 +1,6 @@
 library(tidyverse)
 library(lubridate)
-
+library(spsurvey)
 
 ############## Recast year function
 ############## This is needed because the trend analysis function estimates a variance for each sampling year
