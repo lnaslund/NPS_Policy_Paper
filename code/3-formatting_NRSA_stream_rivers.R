@@ -17,6 +17,11 @@ d1$order<-as.numeric(recode_factor(as.factor(d1$STRAHLERORDER),"1st"="1","2nd"="
                         "6th"="6","7th"="7","8th+"="8"))
 d1$weight<-d1$WGTNRSA09
 
+d1 <- d1 %>% mutate(nh4_bdl_flag = if_else(NH4_ALERT =="R", TRUE, FALSE), 
+                    no3_bdl_flag = if_else(NO3_ALERT =="R", TRUE, FALSE), 
+                    tn_bdl_flag = if_else(NTL_ALERT =="R", TRUE, FALSE), 
+                    tp_bdl_flag = if_else(PTL_ALERT =="R", TRUE, FALSE))
+
 ## 2018-2019 survey
 d2<-read.csv("data/stream_chemistry_data/nrsa_1819_water_chemistry_chla_-_data.csv")
 d2$state<-d2$STATE
@@ -27,6 +32,16 @@ d2<-merge(d2,site.info.d2,by="UID")
 
 d2$weight<-d2$WGT_TP_EXTENT
 d2$order<-d2$STRAH_ORD
+
+d2 <- d2 %>% mutate(nh4_bdl_flag = if_else(AMMONIA_N_NARS_FLAG =="ND", TRUE, FALSE), 
+                    no3_bdl_flag = if_else(NITRATE_N_NARS_FLAG =="ND", TRUE, FALSE), 
+                    tn_bdl_flag = if_else(NTL_NARS_FLAG =="ND", TRUE, FALSE), 
+                    tp_bdl_flag = if_else(PTL_NARS_FLAG =="ND", TRUE, FALSE), 
+                    AMMONIA_N_RESULT = if_else(nh4_bdl_flag==TRUE, AMMONIA_N_MDL, AMMONIA_N_RESULT),
+                    NITRATE_N_RESULT = if_else(no3_bdl_flag==TRUE, NITRATE_N_MDL, NITRATE_N_RESULT), 
+                    NTL_RESULT = if_else(tn_bdl_flag==TRUE, NTL_MDL, NTL_RESULT), 
+                    PTL_RESULT = if_else(tp_bdl_flag==TRUE, PTL_MDL, PTL_RESULT))
+
 
 # 2013-2014 survey
 d3<-read.csv("data/stream_chemistry_data/nrsa1314_widechem_04232019.csv")
@@ -39,18 +54,23 @@ d3<-merge(d3,site.info.d3,by="UID")
 d3$weight<-d3$WGT_EXT_SP
 d3$order<-d3$STRAH_ORD
 
+d3 <- d3 %>% mutate(nh4_bdl_flag = if_else(AMMONIA_N_NARS_FLAG =="ND", TRUE, FALSE), 
+                    no3_bdl_flag = if_else(NITRATE_N_NARS_FLAG =="ND", TRUE, FALSE), 
+                    tn_bdl_flag = if_else(NTL_NARS_FLAG =="ND", TRUE, FALSE), 
+                    tp_bdl_flag = if_else(PTL_NARS_FLAG =="ND", TRUE, FALSE))
+
 #### 2008-2009 survey
 d1.subset<-data.frame(state=d1$STATE,site=d1$SITE_ID.x,date=d1$DATE_COL.x,nh4=d1$NH4,nh4.flag=d1$NH4_ALERT,
                       no3=d1$NO3,no3.flag=d1$NO3_ALERT,tp=d1$PTL,tp.flag=d1$PTL_ALERT,tn=d1$NTL,
                       tn.flag=d1$NTL_ALERT,site.type=d1$SITE_CLASS,order=d1$order,weight=d1$weight,
-                      lat=d1$LAT_DD83,lon=d1$LON_DD83)
+                      lat=d1$LAT_DD83,lon=d1$LON_DD83, nh4_bdl_flag = d1$nh4_bdl_flag, 
+                      no3_bdl_flag = d1$no3_bdl_flag, tn_bdl_flag=d1$tn_bdl_flag, tp_bdl_flag=d1$tp_bdl_flag)
 
 d1.subset$nh4<-d1.subset$nh4*1000 ## converting to ug/L
 d1.subset$no3<-d1.subset$no3*1000 ## converting to ug/L
 
+
 ### 2018-2019 data. merging the flag (what they call it when a point is bad) into a column to make the formats more similar
-### may want to handle points below detection differently? maybe call them zeros instead of dropping them?
-# TODO: change bdl sites to 1/2 dl and run analysis again. Do the same for lakes
 
 d2$no3.flag<-paste(d2$NITRATE_N_NARS_FLAG,d2$NITRATE_N_QA_FLAG,sep="")
 d2$nh4.flag<-paste(d2$AMMONIA_N_NARS_FLAG,d2$AMMONIA_N_QA_FLAG,sep="")
@@ -61,7 +81,8 @@ d2.subset<-data.frame(state=d2$state,site=d2$SITE_ID.x,date=d2$DATE_COL.x,nh4=d2
                       nh4.flag=d2$nh4.flag, no3=d2$NITRATE_N_RESULT,no3.flag=d2$no3.flag,
                       tp=d2$PTL_RESULT,tp.flag=d2$ptl.flag,
                       tn=d2$NTL_RESULT,tn.flag=d2$ntl.flag,site.type=d2$SITETYPE,order=d2$order,weight=d2$weight,
-                      lat=d2$LAT_DD83,lon=d2$LON_DD83)
+                      lat=d2$LAT_DD83,lon=d2$LON_DD83, nh4_bdl_flag = d2$nh4_bdl_flag, 
+                      no3_bdl_flag = d2$no3_bdl_flag, tn_bdl_flag=d2$tn_bdl_flag, tp_bdl_flag=d2$tp_bdl_flag)
 
 d2.subset$nh4<-d2.subset$nh4*1000 ## converting to ug/L
 d2.subset$no3<-d2.subset$no3*1000 ## converting to ug/L
@@ -81,7 +102,9 @@ d3.subset<-data.frame(state=d3$state,site=d3$SITE_ID.x,date=d3$DATE_COL.x,nh4=d3
                       no3=d3$NITRATE_N_RESULT,no3.flag=d3$no3.flag,
                       tp=d3$PTL_RESULT,tp.flag=d3$ptl.flag,
                       tn=d3$NTL_RESULT,tn.flag=d3$ntl.flag,site.type=d3$SITETYPE.x,order=d3$order,weight=d3$weight,
-                      lat=d3$LAT_DD83.x,lon=d3$LON_DD83.x)
+                      lat=d3$LAT_DD83.x,lon=d3$LON_DD83.x, 
+                      nh4_bdl_flag = d3$nh4_bdl_flag, 
+                      no3_bdl_flag = d3$no3_bdl_flag, tn_bdl_flag=d3$tn_bdl_flag, tp_bdl_flag=d3$tp_bdl_flag)
 
 d3.subset$nh4<-d3.subset$nh4*1000 ##converting to ug/L
 d3.subset$no3<-d3.subset$no3*1000 ##converting to ug/L
@@ -93,23 +116,23 @@ data<-bind_rows(d1.subset,d2.subset,d3.subset)
 
 
 # remove observations with NO3 data quality flags
-nitrate.data<-data[data$no3.flag=="" & data$site.type=="PROB",]
+nitrate.data<-data[(data$no3.flag=="" | data$no3_bdl_flag==TRUE) & data$site.type=="PROB",]
 nitrate.data<-nitrate.data[is.na(nitrate.data$no3)==FALSE,]
 
 write.csv(nitrate.data,file="data/clean_data/clean_stream_nitrate.csv", row.names=FALSE)
 
-tp.data<-data[data$tp.flag=="" & data$site.type=="PROB",]
+tp.data<-data[(data$tp.flag=="" | data$tp_bdl_flag==TRUE) & data$site.type=="PROB",]
 tp.data<-tp.data[is.na(tp.data$tp)==FALSE,]
 
 write.csv(tp.data,file="data/clean_data/clean_stream_tp.csv", row.names=FALSE)
 
 
-tn.data<-data[data$tn.flag=="" & data$site.type=="PROB",]
+tn.data<-data[(data$tn.flag=="" | data$tn_bdl_flag==TRUE) & data$site.type=="PROB",]
 tn.data<-tn.data[is.na(tn.data$tn)==FALSE,]
 
 write.csv(tn.data,file="data/clean_data/clean_stream_tn.csv", row.names=FALSE)
 
-nh4.data<-data[data$nh4.flag=="" & data$site.type=="PROB",]
+nh4.data<-data[(data$nh4.flag=="" | data$nh4_bdl_flag==TRUE) & data$site.type=="PROB",]
 nh4.data<-nh4.data[is.na(nh4.data$nh4)==FALSE,]
 
 write.csv(nh4.data,file="data/clean_data/clean_stream_nh4.csv", row.names=FALSE)

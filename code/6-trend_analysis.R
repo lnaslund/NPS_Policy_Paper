@@ -27,14 +27,10 @@ stream_nitrate<-read.csv("data/clean_data/clean_stream_nitrate.csv")
 
 stream_nitrate$siteID<-stream_nitrate$site
 stream_nitrate$year<-year(ymd(stream_nitrate$date))
-
-
-# recasting years changes trends 
 stream_nitrate$single_year <- year(ymd(sapply(as.character(stream_nitrate$year), alter_year), truncated = 2L))
 stream_nitrate$Wyear <- stream_nitrate$single_year - min(stream_nitrate$single_year)
 
-# filtering sites with Strahler order less than 5
-stream_nitrate<-stream_nitrate[stream_nitrate$order<5,]
+# summary of the number of observations per survey year per state
 year_no3_state_n <- stream_nitrate %>% group_by(state, Wyear) %>% dplyr::summarize(count=n())
 
 # trend analysis function weights the estimates based on the design of the survey (stratified random sampling)
@@ -78,13 +74,11 @@ write.csv(difference_no3, "data/clean_data/difference_no3.csv", row.names =F)
 
 stream_ammonium<-read.csv("data/clean_data/clean_stream_nh4.csv")
 
-
 stream_ammonium$siteID<-stream_ammonium$site
 stream_ammonium$year<-year(ymd(stream_ammonium$date))
 stream_ammonium$single_year <- year(ymd(sapply(as.character(stream_ammonium$year), alter_year), truncated = 2L))
 stream_ammonium$Wyear <- stream_ammonium$single_year - min(stream_ammonium$single_year)
 
-stream_ammonium<-stream_ammonium[stream_ammonium$order<5,]
 year_nh4_state_n <- stream_ammonium %>% group_by(state, Wyear) %>% dplyr::summarize(count=n())
 
 ammonium.model_slr<-trend_analysis(stream_ammonium,vars_cont = "nh4",subpops = "state",model_cont="SLR",xcoord="lon",ycoord="lat",year="single_year")
@@ -130,11 +124,9 @@ stream_tn$year<-year(ymd(stream_tn$date))
 stream_tn$single_year <- year(ymd(sapply(as.character(stream_tn$year), alter_year), truncated = 2L))
 stream_tn$Wyear <- stream_tn$single_year - min(stream_tn$single_year)
 
-
-stream_tn<-stream_tn[stream_tn$order<5,]
 stream.tn.model_slr<-trend_analysis(stream_tn,vars_cont = "tn",subpops = "state",model_cont="SLR",xcoord="lon",ycoord="lat", year="single_year")
-
 s_tn_slr<-stream.tn.model_slr$contsum
+
 # check difference between SLR and weighted SLR
 output_build_tn <- data.frame()
 for(i in 1:length(levels(as.factor(stream_tn$state)))){
@@ -175,11 +167,8 @@ stream_tp$year<-year(ymd(stream_tp$date))
 stream_tp$single_year <- year(ymd(sapply(as.character(stream_tp$year), alter_year), truncated = 2L))
 stream_tp$Wyear <- stream_tp$single_year - min(stream_tp$single_year)
 
-stream_tp<-stream_tp[stream_tp$order<5,]
 tp.model_slr<-trend_analysis(stream_tp,vars_cont = "tp",subpops = "state",model_cont="SLR",xcoord="lon",ycoord="lat", year="single_year")
-
 s_tp_slr<-tp.model_slr$contsum
-
 
 output_build_tp <- data.frame()
 for(i in 1:length(levels(as.factor(stream_tp$state)))){
@@ -221,7 +210,6 @@ lake_tp$single_year <- year(ymd(sapply(as.character(lake_tp$year), alter_year), 
 lake_tp$Wyear <- lake_tp$single_year - min(lake_tp$single_year)
 
 lake_tp.model_slr<-trend_analysis(lake_tp,vars_cont = "tp",subpops = "state",model_cont="SLR",xcoord="lon",ycoord="lat", year="single_year")
-
 l_tp_slr<-lake_tp.model_slr$contsum
 
 output_build_tp_lake <- data.frame()
@@ -264,7 +252,6 @@ lake_tn$single_year <- year(ymd(sapply(as.character(lake_tn$year), alter_year), 
 lake_tn$Wyear <- lake_tn$single_year - min(lake_tn$single_year)
 
 lake_tn.model_slr<-trend_analysis(lake_tn,vars_cont = "tn",subpops = "state",model_cont="SLR",xcoord="lon",ycoord="lat", year="single_year")
-
 l_tn_slr<-lake_tn.model_slr$contsum
 
 output_build_tn_lake <- data.frame()
