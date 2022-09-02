@@ -16,7 +16,7 @@ lc2019$undeveloped<-lc2019$Mixed_Forest+lc2019$Deciduous_Forest+lc2019$Evergreen
 lc2019$ag<-lc2019$Hay_Pasture+lc2019$Cultivated_Crops
 
 short.2008lc<-data.frame(State=toupper(lc2008$STATE_NAME),urban.2008=lc2008$urban,undeveloped.2008=lc2008$undeveloped,ag.2008=lc2008$ag)
-short.2019lc<-data.frame(State=toupper(lc2019$STATE_NAME),urban.2019=lc2019$urban,undeveloped.2019=lc2019$undeveloped,ag.2019=lc2019$ag)
+short.2019lc<-data.frame(State=toupper(lc2019$ï..STATE_NAM),urban.2019=lc2019$urban,undeveloped.2019=lc2019$undeveloped,ag.2019=lc2019$ag)
 
 
 lc.merged<-merge(short.2008lc,short.2019lc,by="State")
@@ -28,7 +28,7 @@ lc.merged$delta.ag<-lc.merged$ag.2019-lc.merged$ag.2008
 
 population<-read.csv("data/predictor_data/census_population_estimates.csv")
 
-population2<-data.frame(State=toupper(population$state),postal.code=population$postal.code,population.delta=population$population2019-population$population2010)
+population2<-data.frame(State=toupper(population$state),postal.code=population$postal.code,population.delta=population$population2019-population$population2010,pop2010=population$population2010)
 
 
 ### agriculture
@@ -69,7 +69,7 @@ d1<-merge(population2,lc.merged,by="State")
 d2<-merge(d1,fertilizer.change,by="State")
 d3<-merge(d2,feed.change,by="State")
 
-
+write.csv(d3,"./data/alternative_predictors.csv")
 
 ###### normalizing for state area
 
@@ -117,7 +117,7 @@ transformed.pca<-ggplot(site.locations,aes(x=PC1,y=PC2,label=State))+
   geom_segment(aes(x=0,y=0,xend=p$PC1[5],yend=p$PC2[5]),arrow = arrow(length = unit(0.3, "inches")))+
   geom_segment(aes(x=0,y=0,xend=p$PC1[6],yend=p$PC2[6]),arrow = arrow(length = unit(0.3, "inches")))+
   geom_text(data=predictor.vectors,aes(x=PC1,y=PC2,label=variable),size=6)+
-  xlab("PC1 (46%)")+ylab("PC2 (23%)")
+  xlab("PC1 (42%)")+ylab("PC2 (24%)")
 transformed.pca
 
 tiff(filename="figures/transformed.pca.tiff",units="in",res=300,width=8,height=8,compression="lzw")

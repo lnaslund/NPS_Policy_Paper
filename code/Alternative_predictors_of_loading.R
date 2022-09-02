@@ -86,7 +86,7 @@ z.score<-function(x,state.area){
   } #### z score and normalize to state area
 
 
-predictors<-data.frame(pop=z.score(d$pop2010,d$state.jurs.land),pop.delta=z.score(d$population.delta,d$state.jurs.land),
+predictors<-data.frame(state=d$postal.code,pop=z.score(d$pop2010,d$state.jurs.land),pop.delta=z.score(d$population.delta,d$state.jurs.land),
                        urban=z.score(d$urban.2008,d$state.jurs.land),undeveloped=z.score(d$undeveloped.200,d$state.jurs.land),
                        ag=z.score(d$ag.2008,d$state.jurs.land),urban.delta=z.score(d$delta.urban,d$state.jurs.land),
                        undeveloped.delta=z.score(d$delta.undeveloped,d$state.jurs.land),
@@ -95,3 +95,5 @@ predictors<-data.frame(pop=z.score(d$pop2010,d$state.jurs.land),pop.delta=z.scor
                        fertilizer.delta=z.score(d$delta.fertilizer,d$state.jurs.land),
                        feed=z.score(d$feed.dollars.2007,d$state.jurs.land),
                        feed.delta=z.score(d$delta.animal.feed,d$state.jurs.land))
+
+write.csv(predictors,"./data/predictor_data/alternative_loading_predictors.csv")

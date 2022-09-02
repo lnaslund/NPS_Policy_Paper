@@ -8,7 +8,7 @@ library(spsurvey)
 library(ggridges)
 library(ggrepel)
 library(reshape2)
-
+library(MuMIn)
 
 ########### Trend slopes
 difference_no3 <- read.csv("./data/clean_data/difference_no3.csv")
@@ -19,62 +19,71 @@ difference_tn_lake <- read.csv("./data/clean_data/difference_tn_lake.csv")
 difference_tp_lake <- read.csv("./data/clean_data/difference_tp_lake.csv")
 
 ########################## Modeling -- loading variables first
+loading.alt<-read.csv("./data/predictor_data/alternative_loading_predictors.csv")
 
-loading.pca<-read.csv("./data/predictor_data/loading.pca.data.csv")
-loading.pca$state<-loading.pca$State
 
-nsims<-1000
+#### Stream NO3
 
-best_loading_variables<-function(df){
-  df2<-merge(df,loading.pca,by="state")
-  
-  best<-rep(NA,nsims)
-  best2<-rep(NA,nsims)
-for (i in 1:nsims){
-  df2$slope.SLRW<-rnorm(nrow(df2),df2$SLRW_Trend_Estimate,df2$SLRW_Trend_Error)
-  pc1.model<-lm(slope.SLRW~PC1,data=df2)
-  pc2.model<-lm(slope.SLRW~PC2,data=df2)
-  both.model<-lm(slope.SLRW~PC1+PC2,data=df2)
-  
-  AICc.table<-data.frame(model=c("PC1","PC2","both"),AICc=c(AICc(pc1.model),AICc(pc2.model),AICc(both.model)))
-  minimum.AICc<-AICc.table[AICc.table$AICc==min(AICc.table$AICc),"model"]
-  best[i]<-minimum.AICc
-  
-  df2$slope.SLR<-rnorm(nrow(df2),df2$SLR_Trend_Estimate,df2$SLR_Trend_Error)
-  pc1.model.slr<-lm(slope.SLR~PC1,data=df2)
-  pc2.model.slr<-lm(slope.SLR~PC2,data=df2)
-  both.model.slr<-lm(slope.SLR~PC1+PC2,data=df2)
-  
-  AICc.table.slr<-data.frame(model=c("PC1","PC2","both"),AICc=c(AICc(pc1.model.slr),AICc(pc2.model.slr),AICc(both.model.slr)))
-  minimum.AICc.slr<-AICc.table.slr[AICc.table.slr$AICc==min(AICc.table.slr$AICc),"model"]
-  best2[i]<-minimum.AICc.slr
-  
-  }
-  print("Weighted Linear Regression")
-  print(summary(as.factor(best)))
-  print("Simple Linear Regression")
-  print(summary(as.factor(best2)))
-  
-}
-set.seed(207)
+stream.no3<-merge(difference_no3,loading.alt,by="state")
 
-## PC2 is better for SLRW and PC1 is better for SLR
-best_loading_variables(difference_no3)
+stream.no3.global<-lm(SLRW_Trend_Estimate~pop+pop.delta+urban+undeveloped+ag+urban.delta+undeveloped.delta+ag.delta+
+                        fertilizer+fertilizer.delta+feed+feed.delta,stream.no3,na.action = "na.fail")
+#options(na.action = "na.fail")
+best<-dredge(stream.no3.global)
+subset(best,delta<2)
+best.stream.no3<-lm(SLRW_Trend_Estimate~feed,stream.no3)
 
-## PC1 is better for SLRW and PC2 is better for SLR
-best_loading_variables(difference_nh4)
+### Stream NH4
+stream.nh4<-merge(difference_nh4,loading.alt,by="state")
 
-## PC1 better for SLRW and PC2 better for SLR
-best_loading_variables(difference_tn)
+stream.nh4.global<-lm(SLRW_Trend_Estimate~pop+pop.delta+urban+undeveloped+ag+urban.delta+undeveloped.delta+ag.delta+
+                        fertilizer+fertilizer.delta+feed+feed.delta,stream.nh4,na.action = "na.fail")
+best<-dredge(stream.nh4.global)
+subset(best,delta<2)
 
-## PC1 better for SLRW and SLR
-best_loading_variables(difference_tp)
+best.stream.nh4<-lm(SLRW_Trend_Estimate~feed+urban.delta,data=stream.nh4)
 
-## PC1 better for SLRW and SLR
-best_loading_variables(difference_tn_lake) 
+### stream TP
+stream.tp<-merge(difference_tp,loading.alt,by="state")
 
-## PC1 better for SLRW and PC2 better for SLR
-best_loading_variables(difference_tp_lake)
+stream.tp.global<-lm(SLRW_Trend_Estimate~pop+pop.delta+urban+undeveloped+ag+urban.delta+undeveloped.delta+ag.delta+
+                        fertilizer+fertilizer.delta+feed+feed.delta,stream.tp,na.action = "na.fail")
+best<-dredge(stream.tp.global)
+subset(best,delta<2)
+best.stream.tp<-lm(SLRW_Trend_Estimate~ag.delta,data=stream.tp)
+
+### stream TN
+stream.tn<-merge(difference_tn,loading.alt,by="state")
+
+stream.tn.global<-lm(SLRW_Trend_Estimate~pop+pop.delta+urban+undeveloped+ag+urban.delta+undeveloped.delta+ag.delta+
+                       fertilizer+fertilizer.delta+feed+feed.delta,stream.tn,na.action = "na.fail")
+best<-dredge(stream.tn.global)
+subset(best,delta<2)
+
+best.stream.tn<-lm(SLRW_Trend_Estimate~feed+feed.delta,data=stream.tn)
+summary(best.stream.tn)
+
+### lake TP
+lake.tp<-merge(difference_tp_lake,loading.alt,by="state")
+
+lake.tp.global<-lm(SLRW_Trend_Estimate~pop+pop.delta+urban+undeveloped+ag+urban.delta+undeveloped.delta+ag.delta+
+                     fertilizer+fertilizer.delta+feed+feed.delta,lake.tp,na.action = "na.fail")
+best<-dredge(lake.tp.global)
+subset(best,delta<2)
+best.lake.tp<-lm(SLRW_Trend_Estimate~ag+fertilizer.delta+undeveloped,data=lake.tp)
+summary(best.lake.tp)
+
+### lake TN
+lake.tn<-merge(difference_tn_lake,loading.alt,by="state")
+
+lake.tn.global<-lm(SLRW_Trend_Estimate~pop+pop.delta+urban+undeveloped+ag+urban.delta+undeveloped.delta+ag.delta+
+                     fertilizer+fertilizer.delta+feed+feed.delta,lake.tn,na.action = "na.fail")
+
+best<-dredge(lake.tn.global)
+subset(best,delta<2)
+
+best.lake.tn<-lm(SLRW_Trend_Estimate~ag+feed.delta+fertilizer.delta+pop.delta+urban.delta,lake.tn)
+summary(best.lake.tn)
 
 #################################### Fitting policy variables.
 
@@ -115,7 +124,7 @@ state_nutrient_criteria <- ggplot(nutrient.criteria.melt %>%
   xlab("Nutrient Criteria Score")+ 
   theme(text = element_text(size=20))
   
-tiff(filename="./figures/predictors.tiff",units="in",res=600,width=17,height=12,compression="lzw")
+jpeg(filename="./figures/predictors.jpeg",units="in",res=600,width=17,height=12)
 plot_grid(state_319_plot,state_tmdl_plot,state_nutrient_criteria,ncol=3,labels="AUTO", label_size = 24)
 dev.off()
 
@@ -127,10 +136,10 @@ loading.pca$states<-loading.pca$state
 # Make this clear in the text if you do show AK and HI in the figures but don't include them in the models
 policy.loading <- full_join(tmdl, s319, by =c("states", "State", "total.area.th.acre","federal.land.th.acre", "tribal.land.th.acre", "state.jurs.land")) %>% 
   dplyr::select(-State) %>% 
-  full_join(nutrient_criteria_short, by = "states") %>% 
-  full_join(loading.pca %>% dplyr::select(-State, -state), by = "states") %>% dplyr::rename("state"= "states")
+  full_join(nutrient_criteria_short, by = "states") # %>% 
+  #full_join(loading.pca %>% dplyr::select(-State, -state), by = "states") %>% dplyr::rename("state"= "states")
 
-# Why doesn't PA have tmdl data?
+# Why doesn't PA have tmdl data? Not sure, I've dropped it from analysis lower down
 policy.loading$tmdl.z<-(policy.loading$tmdl.sites.sq.km-mean(policy.loading$tmdl.sites.sq.km, na.rm=T))/sd(policy.loading$tmdl.sites.sq.km, na.rm=T)
 policy.loading$money.z<-(policy.loading$total.money.sq.km-mean(policy.loading$total.money.sq.km))/sd(policy.loading$total.money.sq.km)
 policy.loading$lake.criteria.p.z<-(policy.loading$lake.p.criteria-mean(policy.loading$lake.p.criteria))/sd(policy.loading$lake.p.criteria)
@@ -138,12 +147,11 @@ policy.loading$lake.criteria.n.z<-(policy.loading$lake.n.criteria-mean(policy.lo
 policy.loading$stream.n.criteria.z<-(policy.loading$stream.n.criteria-mean(policy.loading$stream.n.criteria))/sd(policy.loading$stream.n.criteria)
 policy.loading$stream.p.criteria.z<-(policy.loading$stream.p.criteria-mean(policy.loading$stream.p.criteria))/sd(policy.loading$stream.p.criteria)
 
-
-### HERE
+policy.loading$state<-policy.loading$states
 ####################### modeling the effects of policy
 
 # stream nitrate
-difference_no3<-left_join(difference_no3, policy.loading, by="state")
+difference_no3<-left_join(stream.no3, policy.loading, by="state")
 
 stream.nitrate.policy.wlr<-data.frame()
 stream.nitrate.model.selction.wlr<-data.frame()
@@ -154,36 +162,51 @@ stream.nitrate.model.selction.slr<-data.frame()
 stream.nitrate.z.scores.slr<-data.frame()
 stream.nitrate.z.scores.wlr<-data.frame()
 
+null.coef.stream.no3<-data.frame()
+
+nsims<-1000
+
 for (i in 1:nsims){
   d<-difference_no3
+  d<-d[complete.cases(d),]
   d$slope.wlr<-rnorm(nrow(d),d$SLRW_Trend_Estimate,d$SLRW_Trend_Error)
   d$slope.slr<-rnorm(nrow(d),d$SLR_Trend_Estimate,d$SLR_Trend_Error)
 
-  model.money.wlr<-lm(slope.wlr~PC2+total.money.sq.km,data=d)
-  model.money.slr<-lm(slope.slr~PC1+total.money.sq.km,data=d)
-  model.money.wlr.z<-lm(slope.wlr~PC2+money.z,data=d)
-  model.money.slr.z<-lm(slope.slr~PC1+money.z,data=d)
+  model.money.wlr<-lm(slope.wlr~feed+total.money.sq.km,data=d)
+  model.money.slr<-lm(slope.slr~feed+total.money.sq.km,data=d)
+  model.money.wlr.z<-lm(slope.wlr~feed+money.z,data=d)
+  model.money.slr.z<-lm(slope.slr~feed+money.z,data=d)
   
-  model.criteria.wlr<-lm(slope.wlr~PC2+stream.n.criteria,data=d)
-  model.criteria.slr<-lm(slope.slr~PC1+stream.n.criteria,data=d)
-  model.criteria.wlr.z<-lm(slope.wlr~PC2+stream.n.criteria.z,data=d)
-  model.criteria.slr.z<-lm(slope.slr~PC1+stream.n.criteria.z,data=d)
+  model.criteria.wlr<-lm(slope.wlr~feed+stream.n.criteria,data=d)
+  model.criteria.slr<-lm(slope.slr~feed+stream.n.criteria,data=d)
+  model.criteria.wlr.z<-lm(slope.wlr~feed+stream.n.criteria.z,data=d)
+  model.criteria.slr.z<-lm(slope.slr~feed+stream.n.criteria.z,data=d)
   
-  model.tmdl.wlr<-lm(slope.wlr~PC2+tmdl.sites.sq.km,data=d)
-  model.tmdl.slr<-lm(slope.slr~PC1+tmdl.sites.sq.km,data=d)
-  model.tmdl.wlr.z<-lm(slope.wlr~PC2+tmdl.z,data=d)
-  model.tmdl.slr.z<-lm(slope.slr~PC1+tmdl.z,data=d)
+  model.tmdl.wlr<-lm(slope.wlr~feed+tmdl.sites.sq.km,data=d)
+  model.tmdl.slr<-lm(slope.slr~feed+tmdl.sites.sq.km,data=d)
+  model.tmdl.wlr.z<-lm(slope.wlr~feed+tmdl.z,data=d)
+  model.tmdl.slr.z<-lm(slope.slr~feed+tmdl.z,data=d)
   
-  null.wlr<-lm(slope.wlr~PC2,data=d)
-  null.slr<-lm(slope.slr~PC1,data=d)
+  null.wlr<-lm(slope.wlr~feed,data=d)
+  null.slr<-lm(slope.slr~feed,data=d)
+  
+  null.output<-data.frame(feed=coef(null.wlr)[2],rsq=r.squaredGLMM(null.wlr)[1])
+  
+  null.coef.stream.no3<-rbind(null.coef.stream.no3,null.output)
   
   model.selction.wlr<-data.frame(AICc(null.wlr,model.money.wlr,model.criteria.wlr,model.tmdl.wlr))
   model.selction.wlr$model<-row.names(model.selction.wlr)
   model.selction.wlr$delta.AICc<-model.selction.wlr$AICc-model.selction.wlr[model.selction.wlr$model=="null.wlr","AICc"]
   
-  z.scores.models.wlr<-data.frame(model.type="WLR",tmdl.wlr.z=coef(model.tmdl.wlr.z)[3],
-                              money.wlr.z=coef(model.money.wlr.z)[3],
-                              criteria.wlr.z=coef(model.criteria.wlr.z)[3])
+  model.tmdl.wlr.z.summary<-summary(model.tmdl.wlr.z)
+  model.money.wlr.z.summary<-summary(model.money.wlr.z)
+  model.criteria.wlr.z.summary<-summary(model.criteria.wlr.z)
+  
+  z.scores.models.wlr<-data.frame(model.type="WLR",coef=c(coef(model.tmdl.wlr.z)[3],coef(model.money.wlr.z)[3],
+                              coef(model.criteria.wlr.z)[3]),policy=c("tmdl","319","criteria"),
+                              se.coef=c(model.tmdl.wlr.z.summary$coefficients[3,2],
+                                        model.money.wlr.z.summary$coefficients[3,2],
+                                        model.criteria.wlr.z.summary$coefficients[3,2]))
   
   z.scores.models.slr<-data.frame(model.type="SLR",tmdl.slr.z=coef(model.tmdl.slr.z)[3],
                                   money.slr.z=coef(model.money.slr.z)[3],
@@ -191,6 +214,7 @@ for (i in 1:nsims){
   
   stream.nitrate.z.scores.slr<-rbind(stream.nitrate.z.scores.slr,z.scores.models.slr)
   stream.nitrate.z.scores.wlr<-rbind(stream.nitrate.z.scores.wlr,z.scores.models.wlr)
+  
   
   stream.nitrate.model.selction.wlr<-rbind(stream.nitrate.model.selction.wlr,model.selction.wlr)
   
@@ -212,9 +236,6 @@ for (i in 1:nsims){
 }
 
 
-stream.nitrate.z.scores.wlr.melt<-melt(stream.nitrate.z.scores.wlr)
-ggplot(stream.nitrate.z.scores.wlr.melt,aes(x=variable,y=value))+geom_boxplot()
-
 stream.nitrate.policy.wlr$nutrient<-"stream_nitrate"
 stream.nitrate.policy.slr$nutrient<-"stream_nitrate"
 summarySE(stream.nitrate.model.selction.wlr,measurevar = "delta.AICc",groupvars="model")
@@ -223,7 +244,7 @@ summarySE(stream.nitrate.model.selction.slr,measurevar = "delta.AICc",groupvars=
 
 #### Stream ammonium
 
-stream.ammonium.slopes.predictors<-merge(difference_nh4, policy.loading,by="state")
+stream.ammonium.slopes.predictors<-merge(stream.nh4, policy.loading,by="state")
 
 stream.ammonium.policy.wlr<-data.frame()
 stream.ammonium.model.selction.wlr<-data.frame()
@@ -234,28 +255,34 @@ stream.ammonium.model.selction.slr<-data.frame()
 stream.ammonium.z.scores.slr<-data.frame()
 stream.ammonium.z.scores.wlr<-data.frame()
 
+null.coef.stream.ammonium<-data.frame()
+
 for (i in 1:nsims){
   d<-stream.ammonium.slopes.predictors
+  d<-d[complete.cases(d),]
   d$slope.wlr<-rnorm(nrow(d),d$SLRW_Trend_Estimate,d$SLRW_Trend_Error)
   d$slope.slr<-rnorm(nrow(d),d$SLR_Trend_Estimate,d$SLR_Trend_Error)
   
-  model.money.wlr<-lm(slope.wlr~PC2+total.money.sq.km,data=d)
-  model.money.slr<-lm(slope.slr~PC1+total.money.sq.km,data=d)
-  model.money.wlr.z<-lm(slope.wlr~PC2+money.z,data=d)
-  model.money.slr.z<-lm(slope.slr~PC1+money.z,data=d)
+  model.money.wlr<-lm(slope.wlr~feed+urban.delta+total.money.sq.km,data=d)
+  model.money.slr<-lm(slope.slr~feed+urban.delta+total.money.sq.km,data=d)
+  model.money.wlr.z<-lm(slope.wlr~feed+urban.delta+money.z,data=d)
+  model.money.slr.z<-lm(slope.slr~feed+urban.delta+money.z,data=d)
   
-  model.criteria.wlr<-lm(slope.wlr~PC2+stream.n.criteria,data=d)
-  model.criteria.slr<-lm(slope.slr~PC1+stream.n.criteria,data=d)
-  model.criteria.wlr.z<-lm(slope.wlr~PC2+stream.n.criteria.z,data=d)
-  model.criteria.slr.z<-lm(slope.slr~PC1+stream.n.criteria.z,data=d)
+  model.criteria.wlr<-lm(slope.wlr~feed+urban.delta+stream.n.criteria,data=d)
+  model.criteria.slr<-lm(slope.slr~feed+urban.delta+stream.n.criteria,data=d)
+  model.criteria.wlr.z<-lm(slope.wlr~feed+urban.delta+stream.n.criteria.z,data=d)
+  model.criteria.slr.z<-lm(slope.slr~feed+urban.delta+stream.n.criteria.z,data=d)
   
-  model.tmdl.wlr<-lm(slope.wlr~PC2+tmdl.sites.sq.km,data=d)
-  model.tmdl.slr<-lm(slope.slr~PC1+tmdl.sites.sq.km,data=d)
-  model.tmdl.wlr.z<-lm(slope.wlr~PC2+tmdl.z,data=d)
-  model.tmdl.slr.z<-lm(slope.slr~PC1+tmdl.z,data=d)
+  model.tmdl.wlr<-lm(slope.wlr~feed+urban.delta+tmdl.sites.sq.km,data=d)
+  model.tmdl.slr<-lm(slope.slr~feed+urban.delta+tmdl.sites.sq.km,data=d)
+  model.tmdl.wlr.z<-lm(slope.wlr~feed+urban.delta+tmdl.z,data=d)
+  model.tmdl.slr.z<-lm(slope.slr~feed+urban.delta+tmdl.z,data=d)
   
-  null.wlr<-lm(slope.wlr~PC1,data=d)
-  null.slr<-lm(slope.slr~PC2,data=d)
+  null.wlr<-lm(slope.wlr~feed+urban.delta,data=d)
+  null.slr<-lm(slope.slr~feed+urban.delta,data=d)
+  
+  null.output<-data.frame(feed=coef(null.wlr)[2],urban.delta=coef(null.wlr)[3],rsq=r.squaredGLMM(null.wlr)[1])
+  null.coef.stream.ammonium<-rbind(null.coef.stream.ammonium,null.output)
   
   model.selction.wlr<-data.frame(AICc(null.wlr,model.money.wlr,model.criteria.wlr,model.tmdl.wlr))
   model.selction.wlr$model<-row.names(model.selction.wlr)
@@ -296,7 +323,7 @@ summarySE(stream.ammonium.model.selction.slr,measurevar = "delta.AICc",groupvars
 
 ### stream TN
 
-stream.tn.slopes.predictors<-merge(difference_tn,policy.loading,by="state")
+stream.tn.slopes.predictors<-merge(stream.tn,policy.loading,by="state")
 
 stream.tn.policy.slr<-data.frame()
 stream.tn.policy.wlr<-data.frame()
@@ -306,26 +333,36 @@ stream.tn.model.selction.slr<-data.frame()
 
 stream.tn.z.scores.slr<-data.frame()
 stream.tn.z.scores.wlr<-data.frame()
+
+null.model.fit.stream.tn<-data.frame()
 for (i in 1:nsims){
   
   d<-stream.tn.slopes.predictors
+  d<-d[complete.cases(d),]
   d$slope.wlr<-rnorm(nrow(d),d$SLRW_Trend_Estimate,d$SLRW_Trend_Error)
   d$slope.slr<-rnorm(nrow(d),d$SLR_Trend_Estimate,d$SLR_Trend_Error)
   
-  model.money.wlr<-lm(slope.wlr~PC2+total.money.sq.km,data=d)
-  model.money.slr<-lm(slope.slr~PC1+total.money.sq.km,data=d)
-  model.money.wlr.z<-lm(slope.wlr~PC2+money.z,data=d)
-  model.money.slr.z<-lm(slope.slr~PC1+money.z,data=d)
+  model.money.wlr<-lm(slope.wlr~feed+feed.delta+total.money.sq.km,data=d)
+  model.money.slr<-lm(slope.slr~feed+feed.delta+total.money.sq.km,data=d)
+  model.money.wlr.z<-lm(slope.wlr~feed+feed.delta+money.z,data=d)
+  model.money.slr.z<-lm(slope.slr~feed+feed.delta+money.z,data=d)
   
-  model.criteria.wlr<-lm(slope.wlr~PC2+stream.n.criteria,data=d)
-  model.criteria.slr<-lm(slope.slr~PC1+stream.n.criteria,data=d)
-  model.criteria.wlr.z<-lm(slope.wlr~PC2+stream.n.criteria.z,data=d)
-  model.criteria.slr.z<-lm(slope.slr~PC1+stream.n.criteria.z,data=d)
+  model.criteria.wlr<-lm(slope.wlr~feed+feed.delta+stream.n.criteria,data=d)
+  model.criteria.slr<-lm(slope.slr~feed+feed.delta+stream.n.criteria,data=d)
+  model.criteria.wlr.z<-lm(slope.wlr~feed+feed.delta+stream.n.criteria.z,data=d)
+  model.criteria.slr.z<-lm(slope.slr~feed+feed.delta+stream.n.criteria.z,data=d)
   
-  model.tmdl.wlr<-lm(slope.wlr~PC2+tmdl.sites.sq.km,data=d)
-  model.tmdl.slr<-lm(slope.slr~PC1+tmdl.sites.sq.km,data=d)
-  model.tmdl.wlr.z<-lm(slope.wlr~PC2+tmdl.z,data=d)
-  model.tmdl.slr.z<-lm(slope.slr~PC1+tmdl.z,data=d)
+  model.tmdl.wlr<-lm(slope.wlr~feed+feed.delta+tmdl.sites.sq.km,data=d)
+  model.tmdl.slr<-lm(slope.slr~feed+feed.delta+tmdl.sites.sq.km,data=d)
+  model.tmdl.wlr.z<-lm(slope.wlr~feed+feed.delta+tmdl.z,data=d)
+  model.tmdl.slr.z<-lm(slope.slr~feed+feed.delta+tmdl.z,data=d)
+  
+  null.wlr<-lm(slope.wlr~feed+feed.delta,data=d)
+  null.slr<-lm(slope.slr~feed+feed.delta,data=d)
+  
+  null.output<-data.frame(feed=coef(null.wlr)[2],feed.delta=coef(null.wlr)[3],rsq=r.squaredGLMM(null.wlr)[1])
+  
+  null.model.fit.stream.tn<-rbind(null.model.fit.stream.tn,null.output)
   
   model.selction.wlr<-data.frame(AICc(null.wlr,model.money.wlr,model.criteria.wlr,model.tmdl.wlr))
   model.selction.wlr$model<-row.names(model.selction.wlr)
@@ -366,7 +403,7 @@ summarySE(stream.tn.model.selction.slr,measurevar = "delta.AICc",groupvars="mode
 
 ## stream tp
 
-stream.tp.slopes.predictors<-merge(difference_tp, policy.loading,by="state")
+stream.tp.slopes.predictors<-merge(stream.tp, policy.loading,by="state")
 
 stream.tp.policy.wlr<-data.frame()
 stream.tp.model.selction.wlr<-data.frame()
@@ -376,29 +413,36 @@ stream.tp.model.selction.slr<-data.frame()
 
 stream.tp.z.scores.slr<-data.frame()
 stream.tp.z.scores.wlr<-data.frame()
+
+null.coef.stream.tp<-data.frame()
+
 for (i in 1:nsims){
   
   d<-stream.tp.slopes.predictors
+  d<-d[complete.cases(d),]
   d$slope.wlr<-rnorm(nrow(d),d$SLRW_Trend_Estimate,d$SLRW_Trend_Error)
   d$slope.slr<-rnorm(nrow(d),d$SLR_Trend_Estimate,d$SLR_Trend_Error)
   
-  model.money.wlr<-lm(slope.wlr~PC2+total.money.sq.km,data=d)
-  model.money.slr<-lm(slope.slr~PC1+total.money.sq.km,data=d)
-  model.money.wlr.z<-lm(slope.wlr~PC2+money.z,data=d)
-  model.money.slr.z<-lm(slope.slr~PC1+money.z,data=d)
+  model.money.wlr<-lm(slope.wlr~ag.delta+total.money.sq.km,data=d)
+  model.money.slr<-lm(slope.slr~ag.delta+total.money.sq.km,data=d)
+  model.money.wlr.z<-lm(slope.wlr~ag.delta+money.z,data=d)
+  model.money.slr.z<-lm(slope.slr~ag.delta+money.z,data=d)
   
-  model.criteria.wlr<-lm(slope.wlr~PC2+stream.n.criteria,data=d)
-  model.criteria.slr<-lm(slope.slr~PC1+stream.n.criteria,data=d)
-  model.criteria.wlr.z<-lm(slope.wlr~PC2+stream.n.criteria.z,data=d)
-  model.criteria.slr.z<-lm(slope.slr~PC1+stream.n.criteria.z,data=d)
+  model.criteria.wlr<-lm(slope.wlr~ag.delta+stream.n.criteria,data=d)
+  model.criteria.slr<-lm(slope.slr~ag.delta+stream.n.criteria,data=d)
+  model.criteria.wlr.z<-lm(slope.wlr~ag.delta+stream.n.criteria.z,data=d)
+  model.criteria.slr.z<-lm(slope.slr~ag.delta+stream.n.criteria.z,data=d)
   
-  model.tmdl.wlr<-lm(slope.wlr~PC2+tmdl.sites.sq.km,data=d)
-  model.tmdl.slr<-lm(slope.slr~PC1+tmdl.sites.sq.km,data=d)
-  model.tmdl.wlr.z<-lm(slope.wlr~PC2+tmdl.z,data=d)
-  model.tmdl.slr.z<-lm(slope.slr~PC1+tmdl.z,data=d)
+  model.tmdl.wlr<-lm(slope.wlr~ag.delta+tmdl.sites.sq.km,data=d)
+  model.tmdl.slr<-lm(slope.slr~ag.delta+tmdl.sites.sq.km,data=d)
+  model.tmdl.wlr.z<-lm(slope.wlr~ag.delta+tmdl.z,data=d)
+  model.tmdl.slr.z<-lm(slope.slr~ag.delta+tmdl.z,data=d)
   
-  null.wlr<-lm(slope.wlr~PC1,data=d)
-  null.slr<-lm(slope.slr~PC1,data=d)
+  null.wlr<-lm(slope.wlr~ag.delta,data=d)
+  null.slr<-lm(slope.slr~ag.delta,data=d)
+  
+  null.output<-data.frame(ag.delta=coef(null.wlr)[2],rsq=r.squaredGLMM(null.wlr)[1])
+  null.coef.stream.tp<-rbind(null.coef.stream.tp,null.output)
   
   model.selction.wlr<-data.frame(AICc(null.wlr,model.money.wlr,model.criteria.wlr,model.tmdl.wlr))
   model.selction.wlr$model<-row.names(model.selction.wlr)
@@ -440,7 +484,7 @@ summarySE(stream.tp.model.selction.slr,measurevar = "delta.AICc",groupvars="mode
 
 ## lake tp
 
-lake.tp.slopes.policy<-merge(difference_tp_lake,policy.loading,by="state")
+lake.tp.slopes.policy<-merge(lake.tp,policy.loading,by="state")
 
 lake.tp.policy.slr<-data.frame()
 lake.tp.policy.wlr<-data.frame()
@@ -453,28 +497,39 @@ lake.tp.z.scores.wlr<-data.frame()
 
 lake.tp.z.scores.slr<-data.frame()
 lake.tp.z.scores.wlr<-data.frame()
+
+null.coef.lake.tp<-data.frame()
+
 for (i in 1:nsims){
   
   d<-lake.tp.slopes.policy
+  d<-d[complete.cases(d),]
   d$slope.wlr<-rnorm(nrow(d),d$SLRW_Trend_Estimate,d$SLRW_Trend_Error)
   d$slope.slr<-rnorm(nrow(d),d$SLR_Trend_Estimate,d$SLR_Trend_Error)
   
 
-  model.money.wlr<-lm(slope.wlr~PC2+total.money.sq.km,data=d)
-  model.money.slr<-lm(slope.slr~PC1+total.money.sq.km,data=d)
-  model.money.wlr.z<-lm(slope.wlr~PC2+money.z,data=d)
-  model.money.slr.z<-lm(slope.slr~PC1+money.z,data=d)
+  model.money.wlr<-lm(slope.wlr~ag+fertilizer.delta+undeveloped+total.money.sq.km,data=d)
+  model.money.slr<-lm(slope.slr~ag+fertilizer.delta+undeveloped+total.money.sq.km,data=d)
+  model.money.wlr.z<-lm(slope.wlr~ag+fertilizer.delta+undeveloped+money.z,data=d)
+  model.money.slr.z<-lm(slope.slr~ag+fertilizer.delta+undeveloped+money.z,data=d)
   
-  model.criteria.wlr<-lm(slope.wlr~PC2+stream.n.criteria,data=d)
-  model.criteria.slr<-lm(slope.slr~PC1+stream.n.criteria,data=d)
-  model.criteria.wlr.z<-lm(slope.wlr~PC2+stream.n.criteria.z,data=d)
-  model.criteria.slr.z<-lm(slope.slr~PC1+stream.n.criteria.z,data=d)
+  model.criteria.wlr<-lm(slope.wlr~ag+fertilizer.delta+undeveloped+stream.n.criteria,data=d)
+  model.criteria.slr<-lm(slope.slr~ag+fertilizer.delta+undeveloped+stream.n.criteria,data=d)
+  model.criteria.wlr.z<-lm(slope.wlr~ag+fertilizer.delta+undeveloped+stream.n.criteria.z,data=d)
+  model.criteria.slr.z<-lm(slope.slr~ag+fertilizer.delta+undeveloped+stream.n.criteria.z,data=d)
   
-  model.tmdl.wlr<-lm(slope.wlr~PC2+tmdl.sites.sq.km,data=d)
-  model.tmdl.slr<-lm(slope.slr~PC1+tmdl.sites.sq.km,data=d)
-  model.tmdl.wlr.z<-lm(slope.wlr~PC2+tmdl.z,data=d)
-  model.tmdl.slr.z<-lm(slope.slr~PC1+tmdl.z,data=d)
+  model.tmdl.wlr<-lm(slope.wlr~ag+fertilizer.delta+undeveloped+tmdl.sites.sq.km,data=d)
+  model.tmdl.slr<-lm(slope.slr~ag+fertilizer.delta+undeveloped+tmdl.sites.sq.km,data=d)
+  model.tmdl.wlr.z<-lm(slope.wlr~ag+fertilizer.delta+undeveloped+tmdl.z,data=d)
+  model.tmdl.slr.z<-lm(slope.slr~ag+fertilizer.delta+undeveloped+tmdl.z,data=d)
+  
+  null.wlr<-lm(slope.wlr~ag+fertilizer.delta+undeveloped,data=d)
+  null.slr<-lm(slope.slr~ag+fertilizer.delta+undeveloped,data=d)
+  
+  null.output<-data.frame(fertilizer.delta=coef(null.wlr)[2],undeveloped=coef(null.wlr)[3],rsq=r.squaredGLMM(null.wlr)[1])
 
+  null.coef.lake.tp<-rbind(null.coef.lake.tp,null.output)
+  
   model.selction.wlr<-data.frame(AICc(null.wlr,model.money.wlr,model.criteria.wlr,model.tmdl.wlr))
   model.selction.wlr$model<-row.names(model.selction.wlr)
   model.selction.wlr$delta.AICc<-model.selction.wlr$AICc-model.selction.wlr[model.selction.wlr$model=="null.wlr","AICc"]
@@ -512,7 +567,7 @@ summarySE(lake.tp.model.selction.wlr,measurevar = "delta.AICc",groupvars="model"
 
 ## lake tn
 
-lake.tn.slopes.policy<-merge(difference_tn_lake,policy.loading,by="state")
+lake.tn.slopes.policy<-merge(lake.tn,policy.loading,by="state")
 
 lake.tn.policy.slr<-data.frame()
 lake.tn.policy.wlr<-data.frame()
@@ -525,27 +580,40 @@ lake.tn.z.scores.wlr<-data.frame()
 
 lake.tn.z.scores.slr<-data.frame()
 lake.tn.z.scores.wlr<-data.frame()
+
+null.coef.lake.tn<-data.frame()
+
 for (i in 1:nsims){
   
   d<-lake.tn.slopes.policy
+  d<-d[complete.cases(d),]
   d$slope.wlr<-rnorm(nrow(d),d$SLRW_Trend_Estimate,d$SLRW_Trend_Error)
   d$slope.slr<-rnorm(nrow(d),d$SLR_Trend_Estimate,d$SLR_Trend_Error)
   
   
-  model.money.wlr<-lm(slope.wlr~PC2+total.money.sq.km,data=d)
-  model.money.slr<-lm(slope.slr~PC1+total.money.sq.km,data=d)
-  model.money.wlr.z<-lm(slope.wlr~PC2+money.z,data=d)
-  model.money.slr.z<-lm(slope.slr~PC1+money.z,data=d)
+  model.money.wlr<-lm(slope.wlr~ag+feed.delta+fertilizer.delta+pop.delta+urban.delta+total.money.sq.km,data=d)
+  model.money.slr<-lm(slope.slr~ag+feed.delta+fertilizer.delta+pop.delta+urban.delta+total.money.sq.km,data=d)
+  model.money.wlr.z<-lm(slope.wlr~ag+feed.delta+fertilizer.delta+pop.delta+urban.delta+money.z,data=d)
+  model.money.slr.z<-lm(slope.slr~ag+feed.delta+fertilizer.delta+pop.delta+urban.delta+money.z,data=d)
   
-  model.criteria.wlr<-lm(slope.wlr~PC2+stream.n.criteria,data=d)
-  model.criteria.slr<-lm(slope.slr~PC1+stream.n.criteria,data=d)
-  model.criteria.wlr.z<-lm(slope.wlr~PC2+stream.n.criteria.z,data=d)
-  model.criteria.slr.z<-lm(slope.slr~PC1+stream.n.criteria.z,data=d)
+  model.criteria.wlr<-lm(slope.wlr~ag+feed.delta+fertilizer.delta+pop.delta+urban.delta+stream.n.criteria,data=d)
+  model.criteria.slr<-lm(slope.slr~ag+feed.delta+fertilizer.delta+pop.delta+urban.delta+stream.n.criteria,data=d)
+  model.criteria.wlr.z<-lm(slope.wlr~ag+feed.delta+fertilizer.delta+pop.delta+urban.delta+stream.n.criteria.z,data=d)
+  model.criteria.slr.z<-lm(slope.slr~ag+feed.delta+fertilizer.delta+pop.delta+urban.delta+stream.n.criteria.z,data=d)
   
-  model.tmdl.wlr<-lm(slope.wlr~PC2+tmdl.sites.sq.km,data=d)
-  model.tmdl.slr<-lm(slope.slr~PC1+tmdl.sites.sq.km,data=d)
-  model.tmdl.wlr.z<-lm(slope.wlr~PC2+tmdl.z,data=d)
-  model.tmdl.slr.z<-lm(slope.slr~PC1+tmdl.z,data=d)
+  model.tmdl.wlr<-lm(slope.wlr~ag+feed.delta+fertilizer.delta+pop.delta+urban.delta+tmdl.sites.sq.km,data=d)
+  model.tmdl.slr<-lm(slope.slr~ag+feed.delta+fertilizer.delta+pop.delta+urban.delta+tmdl.sites.sq.km,data=d)
+  model.tmdl.wlr.z<-lm(slope.wlr~ag+feed.delta+fertilizer.delta+pop.delta+urban.delta+tmdl.z,data=d)
+  model.tmdl.slr.z<-lm(slope.slr~ag+feed.delta+fertilizer.delta+pop.delta+urban.delta+tmdl.z,data=d)
+  
+  null.wlr<-lm(slope.wlr~ag+feed.delta+fertilizer.delta+pop.delta+urban.delta,data=d)
+  null.slr<-lm(slope.slr~ag+feed.delta+fertilizer.delta+pop.delta+urban.delta,data=d)
+  
+  null.output<-data.frame(ag=coef(null.wlr)[2],feed.delta=coef(null.wlr)[3],
+                          fertilizer.delta=coef(null.wlr)[4],pop.delta=coef(null.wlr)[5],
+                          urban.delta=coef(null.wlr)[6],rsq=r.squaredGLMM(null.wlr)[1])
+  
+  null.coef.lake.tn<-rbind(null.coef.lake.tn,null.output)
   
   model.selction.wlr<-data.frame(AICc(null.wlr,model.money.wlr,model.criteria.wlr,model.tmdl.wlr))
   model.selction.wlr$model<-row.names(model.selction.wlr)
@@ -637,12 +705,14 @@ z_scores_plot<-bind_rows(lake.tn.z.scores.wlr,lake.tp.z.scores.wlr,stream.tn.z.s
                           stream.nitrate.z.scores.wlr,stream.ammonium.z.scores.wlr)
 z_scores_plot_melt<-melt(z_scores_plot)
 
+tiff(filename="./figures/z_scored_predictors.tiff",units="in",res=600,width=8,height=12,compression="lzw")
 z_scores_plot_melt %>% 
   mutate(nutrient=as.factor(nutrient_type)) %>% 
   ggplot(aes(x=value, y=variable))+
   geom_density_ridges(scale=1, rel_min_height=0.01) +
   facet_grid(rows=vars(nutrient_type))+
   theme_bw()
+dev.off()
 
 ### for correlation matrix
 cor(policy.loading$total.money.sq.km,policy.loading$tmdl.sites.sq.km, use="complete.obs")
@@ -662,3 +732,25 @@ cor(policy.loading$lake.p.criteria,policy.loading$PC2, use="complete.obs")
 ### HOW ARE WE USING THE DELTA AICc?
 ### Should we use mean from the runs?
 ### Need to summarize best state units 
+
+
+############## Loading variables
+null.coef.lake.tn$type<-"Lake TN"
+null.coef.lake.tp$type<-"Lake TP"
+null.coef.stream.ammonium$type<-"Stream Ammonium"
+null.coef.stream.no3$type<-"Stream Nitrate"
+null.coef.stream.tp$type<-"Stream TP"
+null.model.fit.stream.tn$type<-"Stream TN"
+
+
+predictor.estimates<-bind_rows(melt(null.coef.lake.tn),melt(null.coef.lake.tp),
+                               melt(null.coef.stream.ammonium),melt(null.coef.stream.no3),
+                               melt(null.coef.stream.tp),melt(null.model.fit.stream.tn))
+
+predictor.estimates.sum<-aggregate(value~type+variable,predictor.estimates,quantile,c(0.025,0.5,0.975))
+
+
+ggplot(predictor.estimates.sum[predictor.estimates.sum$variable!="rsq",],
+       aes(x=value[,2],y=variable,color=type))+geom_point(size=3, position=position_dodge(width=0.3))+theme_classic()+
+  xlab("Paramater estimate")+ylab("")+geom_vline(xintercept = 0,linetype="dashed")+
+  geom_errorbar(aes(xmin=value[,1],xmax=value[,3]),width=0.0001, position=position_dodge(width=0.3))

@@ -1,6 +1,8 @@
 library(tidyverse)
 library(lubridate)
 library(spsurvey)
+library(ggplot2)
+library(ggrepel)
 
 ############## Recast year function
 ############## This is needed because the trend analysis function estimates a variance for each sampling year
@@ -123,6 +125,7 @@ stream_tn$siteID<-stream_tn$site
 stream_tn$year<-year(ymd(stream_tn$date))
 stream_tn$single_year <- year(ymd(sapply(as.character(stream_tn$year), alter_year), truncated = 2L))
 stream_tn$Wyear <- stream_tn$single_year - min(stream_tn$single_year)
+
 
 stream.tn.model_slr<-trend_analysis(stream_tn,vars_cont = "tn",subpops = "state",model_cont="SLR",xcoord="lon",ycoord="lat", year="single_year")
 s_tn_slr<-stream.tn.model_slr$contsum
@@ -315,4 +318,91 @@ plot(cmf[,2:7])
 
 write.csv(correlation.matrix.trends,file="data/correlation.matrix.nutrient.trends.csv")
 
-rm(list=ls())
+#rm(list=ls())
+
+
+########### Plots of trends
+coloring_bars<-function(mean.trend,se.trend){
+  temp<-data.frame(mean.trend,se.trend)
+  temp$bar.color<-"black"
+  for (i in 1:nrow(temp)){
+  if (temp$mean.trend[i]-temp$se.trend[i]>0){temp$bar.color[i]<-"Red"}
+  if (temp$mean.trend[i]+temp$se.trend[i]<0){temp$bar.color[i]<-"Blue"}
+  }
+  return(temp$bar.color)
+}
+
+
+
+difference_no3$state<-factor(difference_no3$state,levels=difference_no3$state[order(difference_no3$SLRW_Trend_Estimate)])
+difference_no3$bar_color<-coloring_bars(difference_no3$SLRW_Trend_Estimate,difference_no3$SLRW_Trend_Error)
+
+stream_no3_plot<-ggplot(difference_no3,aes(x=SLRW_Trend_Estimate,y=state,color=bar_color))+geom_point()+
+  geom_errorbarh(aes(xmin=SLRW_Trend_Estimate-SLRW_Trend_Error,xmax=SLRW_Trend_Estimate+SLRW_Trend_Error))+
+  theme_classic()+geom_vline(xintercept = 0,linetype="dashed")+xlab(expression("NO3 trend ("*mu*g~L^-1~"year"^-1*")"))+
+  ylab("")+theme(text = element_text(size=20))+scale_color_manual(values = c("gray50","blue","red"))+
+  theme(legend.position = "none")
+stream_no3_plot
+
+difference_nh4$state<-factor(difference_nh4$state,levels=difference_nh4$state[order(difference_nh4$SLRW_Trend_Estimate)])
+difference_nh4$bar_color<-coloring_bars(difference_nh4$SLRW_Trend_Estimate,difference_nh4$SLRW_Trend_Error)
+
+stream_nh4_plot<-ggplot(difference_nh4,aes(x=SLRW_Trend_Estimate,y=state,color=bar_color))+geom_point()+
+  geom_errorbarh(aes(xmin=SLRW_Trend_Estimate-SLRW_Trend_Error,xmax=SLRW_Trend_Estimate+SLRW_Trend_Error))+
+  theme_classic()+geom_vline(xintercept = 0,linetype="dashed")+xlab(expression("NH4 trend ("*mu*g~L^-1~"year"^-1*")"))+
+  ylab("")+theme(text = element_text(size=20))+scale_color_manual(values = c("gray50","blue","red"))+
+  theme(legend.position = "none")
+stream_nh4_plot
+
+difference_tn$state<-factor(difference_tn$state,levels=difference_tn$state[order(difference_tn$SLRW_Trend_Estimate)])
+difference_tn$bar_color<-coloring_bars(difference_tn$SLRW_Trend_Estimate,difference_tn$SLRW_Trend_Error)
+
+
+stream_tn_plot<-ggplot(difference_tn,aes(x=SLRW_Trend_Estimate,y=state,color=bar_color))+geom_point()+
+  geom_errorbarh(aes(xmin=SLRW_Trend_Estimate-SLRW_Trend_Error,xmax=SLRW_Trend_Estimate+SLRW_Trend_Error))+
+  theme_classic()+geom_vline(xintercept = 0,linetype="dashed")+xlab(expression("TN trend ("*mu*g~L^-1~"year"^-1*")"))+
+  ylab("")+theme(text = element_text(size=20))+scale_color_manual(values = c("gray50","blue","red"))+
+  theme(legend.position = "none")
+stream_tn_plot
+
+difference_tp$state<-factor(difference_tp$state,levels=difference_tp$state[order(difference_tp$SLRW_Trend_Estimate)])
+difference_tp$bar_color<-coloring_bars(difference_tp$SLRW_Trend_Estimate,difference_tp$SLRW_Trend_Error)
+
+stream_tp_plot<-ggplot(difference_tp,aes(x=SLRW_Trend_Estimate,y=state,color=bar_color))+geom_point()+
+  geom_errorbarh(aes(xmin=SLRW_Trend_Estimate-SLRW_Trend_Error,xmax=SLRW_Trend_Estimate+SLRW_Trend_Error))+
+  theme_classic()+geom_vline(xintercept = 0,linetype="dashed")+xlab(expression("TP trend ("*mu*g~L^-1~"year"^-1*")"))+
+  ylab("")+theme(text = element_text(size=20))+scale_color_manual(values = c("gray50","blue","red"))+
+  theme(legend.position = "none")
+stream_tp_plot
+
+jpeg(filename="./figures/all_streams.jpeg",units="in",res=600,width=16,height=12)
+plot_grid(stream_tn_plot,stream_tp_plot,stream_no3_plot,stream_nh4_plot,ncol=4,labels="AUTO",label_x=0.9,label_y=0.95)
+dev.off()
+
+#############
+
+difference_tn_lake$state<-factor(difference_tn_lake$state,levels=difference_tn_lake$state[order(difference_tn_lake$SLRW_Trend_Estimate)])
+difference_tn_lake$bar_color<-coloring_bars(difference_tn_lake$SLRW_Trend_Estimate,difference_tn_lake$SLRW_Trend_Error)
+
+lake_tn_plot<-ggplot(difference_tn_lake,aes(x=SLRW_Trend_Estimate,y=state,color=bar_color))+geom_point()+
+  geom_errorbarh(aes(xmin=SLRW_Trend_Estimate-SLRW_Trend_Error,xmax=SLRW_Trend_Estimate+SLRW_Trend_Error))+
+  theme_classic()+geom_vline(xintercept = 0,linetype="dashed")+xlab(expression("TN trend ("*mu*g~L^-1~"year"^-1*")"))+
+  ylab("")+theme(text = element_text(size=20))+scale_color_manual(values = c("gray50","blue","red"))+
+  theme(legend.position = "none")
+lake_tn_plot
+
+difference_tp_lake$state<-factor(difference_tp_lake$state,levels=difference_tp_lake$state[order(difference_tp_lake$SLRW_Trend_Estimate)])
+difference_tp_lake$bar_color<-coloring_bars(difference_tp_lake$SLRW_Trend_Estimate,difference_tp_lake$SLRW_Trend_Error)
+
+
+lake_tp_plot<-ggplot(difference_tp_lake,aes(x=SLRW_Trend_Estimate,y=state,color=bar_color))+geom_point()+
+  geom_errorbarh(aes(xmin=SLRW_Trend_Estimate-SLRW_Trend_Error,xmax=SLRW_Trend_Estimate+SLRW_Trend_Error))+
+  theme_classic()+geom_vline(xintercept = 0,linetype="dashed")+xlab(expression("TP trend ("*mu*g~L^-1~"year"^-1*")"))+
+  ylab("")+theme(text = element_text(size=20))+scale_color_manual(values = c("gray50","blue","red"))+
+  theme(legend.position = "none")
+lake_tp_plot
+
+
+jpeg(filename="./figures/all_lakes.jpeg",units="in",res=600,width=8,height=12)
+plot_grid(lake_tn_plot,lake_tp_plot,ncol=2,labels="AUTO",label_x=0.9,label_y=0.95)
+dev.off()
