@@ -10,6 +10,8 @@ library(ggrepel)
 library(reshape2)
 library(MuMIn)
 
+set.seed(207)
+
 ########### Trend slopes
 difference_no3 <- read.csv("./data/clean_data/difference_no3.csv")
 difference_nh4 <- read.csv("./data/clean_data/difference_nh4.csv")
@@ -106,28 +108,6 @@ s319$states<-factor(s319$states,levels=s319$states[order(s319$total.money.sq.km)
 tmdl<-read.csv("./data/predictor_data/TMDL_data_summary.csv") %>% inner_join(state.areas,by="states") %>% mutate(tmdl.sites.sq.km=tally/state.jurs.land)
 tmdl$states <-factor(tmdl$states,levels=tmdl$states[order(tmdl$tmdl.sites.sq.km)])
 
-state_tmdl_plot<-ggplot(tmdl,aes(x=tmdl.sites.sq.km,y=states))+geom_point(size=2)+
-  theme_bw()+xlab(expression("TMDL sites visited (2-year-cycle"^-1~"km"^-2*")"))+
-  ylab("")+theme(text = element_text(size=20))
-
-state_319_plot<-ggplot(s319,aes(x=total.money.sq.km,y=states))+geom_point(size=2)+
-  theme_bw()+xlab(expression("319 Dollars (Dollars"~"km"^-2*")"))+
-  ylab("")+theme(text = element_text(size=20))
-
-state_nutrient_criteria <- ggplot(nutrient.criteria.melt %>% 
-                                    mutate(variable = recode(variable, "lake.p.criteria"="Lake P", "lake.n.criteria"="Lake N", "stream.n.criteria"="Stream N", "stream.p.criteria"="Stream P")),
-                                  aes(x=value,y=states))+
-    geom_bar(stat="identity", position = position_dodge())+
-  theme_bw()+
-  facet_grid(~variable) + 
-  ylab("") + 
-  xlab("Nutrient Criteria Score")+ 
-  theme(text = element_text(size=20))
-  
-jpeg(filename="./figures/predictors.jpeg",units="in",res=600,width=17,height=12)
-plot_grid(state_319_plot,state_tmdl_plot,state_nutrient_criteria,ncol=3,labels="AUTO", label_size = 24)
-dev.off()
-
 ####### merge_predictors
 loading.pca$states<-loading.pca$state
 
@@ -188,9 +168,10 @@ for (i in 1:nsims){
   model.tmdl.slr.z<-lm(slope.slr~feed+tmdl.z,data=d)
   
   null.wlr<-lm(slope.wlr~feed,data=d)
+  s.null.wlr<-summary(null.wlr)
   null.slr<-lm(slope.slr~feed,data=d)
   
-  null.output<-data.frame(feed=coef(null.wlr)[2],rsq=r.squaredGLMM(null.wlr)[1])
+  null.output<-data.frame(feed=coef(null.wlr)[2],feed.se=s.null.wlr$coefficients[2,2],rsq=s.null.wlr$r.squared)
   
   null.coef.stream.no3<-rbind(null.coef.stream.no3,null.output)
   
@@ -202,25 +183,55 @@ for (i in 1:nsims){
   model.money.wlr.z.summary<-summary(model.money.wlr.z)
   model.criteria.wlr.z.summary<-summary(model.criteria.wlr.z)
   
-  z.scores.models.wlr<-data.frame(model.type="WLR",coef=c(coef(model.tmdl.wlr.z)[3],coef(model.money.wlr.z)[3],
-                              coef(model.criteria.wlr.z)[3]),policy=c("tmdl","319","criteria"),
-                              se.coef=c(model.tmdl.wlr.z.summary$coefficients[3,2],
+  z.scores.models.wlr<-data.frame(model.type="WLR.z",policy=c("tmdl","319","criteria"),
+                              coef=c(coef(model.tmdl.wlr.z)[3],coef(model.money.wlr.z)[3],
+                              coef(model.criteria.wlr.z)[3]),
+                              coef.se=c(model.tmdl.wlr.z.summary$coefficients[3,2],
                                         model.money.wlr.z.summary$coefficients[3,2],
                                         model.criteria.wlr.z.summary$coefficients[3,2]))
   
-  z.scores.models.slr<-data.frame(model.type="SLR",tmdl.slr.z=coef(model.tmdl.slr.z)[3],
-                                  money.slr.z=coef(model.money.slr.z)[3],
-                                  criteria.slr.z=coef(model.criteria.slr.z)[3])
+  model.tmdl.slr.z.summary<-summary(model.tmdl.slr.z)
+  model.money.slr.z.summary<-summary(model.money.slr.z)
+  model.criteria.slr.z.summary<-summary(model.criteria.slr.z)
+  
+  z.scores.models.slr<-data.frame(model.type="SLR.z",policy=c("tmdl","319","criteria"),
+                                  coef=c(coef(model.tmdl.slr.z)[3],
+                                         coef(model.money.slr.z)[3],
+                                         coef(model.criteria.slr.z)[3]),
+                                  se.coef=c(model.tmdl.slr.z.summary$coefficients[3,2],
+                                          model.money.slr.z.summary$coefficients[3,2],
+                                          model.criteria.slr.z.summary$coefficients[3,2]))
+  
+  model.tmdl.wlr.summary<-summary(model.tmdl.wlr)
+  model.money.wlr.summary<-summary(model.money.wlr)
+  model.criteria.wlr.summary<-summary(model.criteria.wlr)
+  
+  wlr.models.output<-data.frame(model.type="WLR",policy=c("tmdl","319","criteria"),
+                                ceof=c(coef(model.tmdl.wlr)[3],
+                                       coef(model.money.wlr)[3],
+                                       coef(model.criteria.wlr)[3]),
+                                coef.se=c(model.tmdl.wlr.summary$coefficients[3,2],
+                                          model.money.wlr.summary$coefficients[3,2],
+                                          model.criteria.wlr.summary$coefficients[3,2]))
+  
+  model.tmdl.slr.summary<-summary(model.tmdl.slr)
+  model.money.slr.summary<-summary(model.money.slr)
+  model.criteria.slr.summary<-summary(model.criteria.slr)
+  
+  slr.models.output<-data.frame(model.type="SLR",policy=c("tmdl","319","criteria"),
+                                coef=c(coef(model.tmdl.slr)[3],
+                                       coef(model.money.slr)[3],
+                                       coef(model.criteria.slr)[3]),
+                                coef.se=c(model.tmdl.slr.summary$coefficients[3,2],
+                                          model.money.slr.summary$coefficients[3,2],
+                                          model.criteria.slr.summary$coefficients[3,2]))
   
   stream.nitrate.z.scores.slr<-rbind(stream.nitrate.z.scores.slr,z.scores.models.slr)
   stream.nitrate.z.scores.wlr<-rbind(stream.nitrate.z.scores.wlr,z.scores.models.wlr)
-  
+  stream.nitrate.policy.wlr<-rbind(stream.nitrate.policy.wlr,wlr.models.output)
+  stream.nitrate.policy.slr<-rbind(stream.nitrate.policy.slr,slr.models.output)
   
   stream.nitrate.model.selction.wlr<-rbind(stream.nitrate.model.selction.wlr,model.selction.wlr)
-  
-  output.wlr<-data.frame(policy.variable=c("319 dollars","Nutrient Criteria","tmdl"),
-                     coefficient=c(coef(model.money.wlr)[3],coef(model.criteria.wlr)[3],coef(model.tmdl.wlr)[3]))
-  stream.nitrate.policy.wlr<-rbind(stream.nitrate.policy.wlr,output.wlr)
   
   ###slr
   
@@ -230,14 +241,10 @@ for (i in 1:nsims){
   
   stream.nitrate.model.selction.slr<-rbind(stream.nitrate.model.selction.slr,model.selction.slr)
   
-  output.slr<-data.frame(policy.variable=c("319 dollars","Nutrient Criteria","tmdl"),
-                         coefficient=c(coef(model.money.slr)[3],coef(model.criteria.slr)[3],coef(model.tmdl.slr)[3]))
-  stream.nitrate.policy.slr<-rbind(stream.nitrate.policy.slr,output.slr)
+
 }
 
 
-stream.nitrate.policy.wlr$nutrient<-"stream_nitrate"
-stream.nitrate.policy.slr$nutrient<-"stream_nitrate"
 summarySE(stream.nitrate.model.selction.wlr,measurevar = "delta.AICc",groupvars="model")
 summarySE(stream.nitrate.model.selction.slr,measurevar = "delta.AICc",groupvars="model")
 
@@ -281,29 +288,78 @@ for (i in 1:nsims){
   null.wlr<-lm(slope.wlr~feed+urban.delta,data=d)
   null.slr<-lm(slope.slr~feed+urban.delta,data=d)
   
-  null.output<-data.frame(feed=coef(null.wlr)[2],urban.delta=coef(null.wlr)[3],rsq=r.squaredGLMM(null.wlr)[1])
+  null.wlr.summary<-summary(null.wlr)
+  
+  null.output<-data.frame(feed=coef(null.wlr)[2],feed.se=null.wlr.summary$coefficients[2,2],
+                          urban.delta=coef(null.wlr)[3],urban.delta.se=null.wlr.summary$coefficients[3,2],
+                          rsq=null.wlr.summary$r.squared)
   null.coef.stream.ammonium<-rbind(null.coef.stream.ammonium,null.output)
   
   model.selction.wlr<-data.frame(AICc(null.wlr,model.money.wlr,model.criteria.wlr,model.tmdl.wlr))
   model.selction.wlr$model<-row.names(model.selction.wlr)
   model.selction.wlr$delta.AICc<-model.selction.wlr$AICc-model.selction.wlr[model.selction.wlr$model=="null.wlr","AICc"]
   
-  z.scores.models.wlr<-data.frame(model.type="WLR",tmdl.wlr.z=coef(model.tmdl.wlr.z)[3],
-                                  money.wlr.z=coef(model.money.wlr.z)[3],
-                                  criteria.wlr.z=coef(model.criteria.wlr.z)[3])
+  stream.ammonium.model.selction.wlr<-rbind(stream.ammonium.model.selction.wlr,model.selction.wlr)
   
-  z.scores.models.slr<-data.frame(model.type="SLR",tmdl.slr.z=coef(model.tmdl.slr.z)[3],
-                                  money.slr.z=coef(model.money.slr.z)[3],
-                                  criteria.slr.z=coef(model.criteria.slr.z)[3])
+  wlr.z.tmdl.summary<-summary(model.tmdl.wlr.z)
+  wlr.z.money.summary<-summary(model.money.wlr.z)
+  wlr.z.criteria.summary<-summary(model.criteria.wlr.z)
+  
+  z.scores.models.wlr<-data.frame(model.type="WLR.z",policy=c("tmdl","319","criteria"),
+                                  coef=c(coef(model.tmdl.wlr.z)[4],
+                                         coef(model.money.wlr.z)[4],
+                                         coef(model.criteria.wlr.z)[4]),
+                                  coef.se=c(wlr.z.tmdl.summary$coefficients[4,2],
+                                            wlr.z.money.summary$coefficients[4,2],
+                                            wlr.z.criteria.summary$coefficients[4,2]))
+  
+  slr.z.tmdl.summary<-summary(model.tmdl.slr.z)
+  slr.z.money.summary<-summary(model.money.slr.z)
+  slr.z.criteria.summary<-summary(model.criteria.slr.z)
+  
+  
+  z.scores.models.slr<-data.frame(model.type="SLR.z",policy=c("tmdl","319","criteria"),
+                                  coef=c(coef(model.tmdl.slr.z)[4],
+                                         coef(model.money.slr.z)[4],
+                                         coef(model.criteria.slr.z)[4]),
+                                  coef.se=c(slr.z.tmdl.summary$coefficients[4,2],
+                                            slr.z.money.summary$coefficients[4,2],
+                                            slr.z.criteria.summary$coefficients[4,2]))
+  
   stream.ammonium.z.scores.slr<-rbind(stream.ammonium.z.scores.slr,z.scores.models.slr)
   stream.ammonium.z.scores.wlr<-rbind(stream.ammonium.z.scores.wlr,z.scores.models.wlr)
   
+  slr.tmdl.summary<-summary(model.tmdl.slr)
+  slr.money.summary<-summary(model.money.slr)
+  slr.criteria.summary<-summary(model.criteria.slr)
   
-  stream.ammonium.model.selction.wlr<-rbind(stream.ammonium.model.selction.wlr,model.selction.wlr)
+  output.slr<-data.frame(model.type="SLR",policy=c("tmdl","319","criteria"),
+                         coef=c(coef(model.tmdl.slr)[4],
+                                coef(model.money.slr)[4],
+                                coef(model.criteria.slr)[4]),
+                         coef.se=c(slr.tmdl.summary$coefficients[4,2],
+                                   slr.money.summary$coefficients[4,2],
+                                   slr.criteria.summary$coefficients[4,2]))
   
-  output.wlr<-data.frame(policy.variable=c("319 dollars","Nutrient Criteria","tmdl"),
-                     coefficient=c(coef(model.money.wlr)[3],coef(model.criteria.wlr)[3],coef(model.tmdl.wlr)[3]))
+  stream.ammonium.policy.slr<-rbind(stream.ammonium.policy.slr,output.slr)
+  
+  wlr.tmdl.summary<-summary(model.tmdl.wlr)
+  wlr.money.summary<-summary(model.money.wlr)
+  wlr.criteria.summary<-summary(model.criteria.wlr)
+  
+  output.wlr<-data.frame(model.type="WLR",policy=c("tmdl","319","criteria"),
+                         coef=c(coef(model.tmdl.wlr)[4],
+                                coef(model.money.wlr)[4],
+                                coef(model.criteria.wlr)[4]),
+                         coef.se=c(wlr.tmdl.summary$coefficients[4,2],
+                                   wlr.money.summary$coefficients[4,2],
+                                   wlr.criteria.summary$coefficients[4,2]))
   stream.ammonium.policy.wlr<-rbind(stream.ammonium.policy.wlr,output.wlr)
+  
+  
+
+  
+
   
   model.selction.slr<-data.frame(AICc(null.slr,model.money.slr,model.criteria.slr,model.tmdl.slr))
   model.selction.slr$model<-row.names(model.selction.slr)
@@ -311,13 +367,9 @@ for (i in 1:nsims){
   
   stream.ammonium.model.selction.slr<-rbind(stream.ammonium.model.selction.slr,model.selction.slr)
   
-  output.slr<-data.frame(policy.variable=c("319 dollars","Nutrient Criteria","tmdl"),
-                         coefficient=c(coef(model.money.slr)[3],coef(model.criteria.slr)[3],coef(model.tmdl.slr)[3]))
-  stream.ammonium.policy.slr<-rbind(stream.ammonium.policy.slr,output.slr)
-}
+  }
 
-stream.ammonium.policy.wlr$nutrient<-"stream_ammonium"
-stream.ammonium.policy.slr$nutrient<-"stream_ammonium"
+
 summarySE(stream.ammonium.model.selction.wlr,measurevar = "delta.AICc",groupvars="model")
 summarySE(stream.ammonium.model.selction.slr,measurevar = "delta.AICc",groupvars="model")
 
@@ -360,7 +412,11 @@ for (i in 1:nsims){
   null.wlr<-lm(slope.wlr~feed+feed.delta,data=d)
   null.slr<-lm(slope.slr~feed+feed.delta,data=d)
   
-  null.output<-data.frame(feed=coef(null.wlr)[2],feed.delta=coef(null.wlr)[3],rsq=r.squaredGLMM(null.wlr)[1])
+  null.wlr.summary<-summary(null.wlr)
+  
+  null.output<-data.frame(feed=coef(null.wlr)[2],feed.se=null.wlr.summary$coefficients[2,2],
+                          feed.delta=coef(null.wlr)[3],feed.delta.se=null.wlr.summary$coefficients[3,2],
+                          rsq=r.squaredGLMM(null.wlr)[1])
   
   null.model.fit.stream.tn<-rbind(null.model.fit.stream.tn,null.output)
   
@@ -368,22 +424,65 @@ for (i in 1:nsims){
   model.selction.wlr$model<-row.names(model.selction.wlr)
   model.selction.wlr$delta.AICc<-model.selction.wlr$AICc-model.selction.wlr[model.selction.wlr$model=="null.wlr","AICc"]
   
-  z.scores.models.wlr<-data.frame(model.type="WLR",tmdl.wlr.z=coef(model.tmdl.wlr.z)[3],
-                                  money.wlr.z=coef(model.money.wlr.z)[3],
-                                  criteria.wlr.z=coef(model.criteria.wlr.z)[3])
+  stream.tn.model.selction.wlr<-rbind(stream.tn.model.selction.wlr,model.selction.wlr)
   
-  z.scores.models.slr<-data.frame(model.type="SLR",tmdl.slr.z=coef(model.tmdl.slr.z)[3],
-                                  money.slr.z=coef(model.money.slr.z)[3],
-                                  criteria.slr.z=coef(model.criteria.slr.z)[3])
+  wlr.z.tmdl.summary<-summary(model.tmdl.wlr.z)
+  wlr.z.money.summary<-summary(model.money.wlr.z)
+  wlr.z.criteria.summary<-summary(model.criteria.wlr.z)
+  
+  
+  z.scores.models.wlr<-data.frame(model.type="WLR.z",policy=c("tmdl","319","criteria"),
+                                  coef=c(coef(model.tmdl.wlr.z)[4],
+                                         coef(model.money.wlr.z)[4],
+                                         coef(model.criteria.wlr.z)[4]),
+                                  coef.se=c(wlr.z.tmdl.summary$coefficients[4,2],
+                                            wlr.z.money.summary$coefficients[4,2],
+                                            wlr.z.criteria.summary$coefficients[4,2]))
+  
+  slr.z.tmdl.summary<-summary(model.tmdl.slr.z)
+  slr.z.money.summary<-summary(model.money.slr.z)
+  slr.z.criteria.summary<-summary(model.criteria.slr.z)
+  
+  z.scores.models.slr<-data.frame(model.type="SLR.z",policy=c("tmdl","319","criteria"),
+                                  coef=c(coef(model.tmdl.slr.z)[4],
+                                         coef(model.money.slr.z)[4],
+                                         coef(model.criteria.slr.z)[4]),
+                                  coef.se=c(slr.z.tmdl.summary$coefficients[4,2],
+                                            slr.z.money.summary$coefficients[4,2],
+                                            slr.z.criteria.summary$coefficients[4,2]))
+  
+  
   stream.tn.z.scores.slr<-rbind(stream.tn.z.scores.slr,z.scores.models.slr)
   stream.tn.z.scores.wlr<-rbind(stream.tn.z.scores.wlr,z.scores.models.wlr)
   
+  wlr.tmdl.summary<-summary(model.tmdl.wlr)
+  wlr.money.summary<-summary(model.money.wlr)
+  wlr.criteria.summary<-summary(model.criteria.wlr)
   
-  stream.tn.model.selction.wlr<-rbind(stream.tn.model.selction.wlr,model.selction.wlr)
+  output.wlr<-data.frame(model.type="WLR",policy=c("tmdl","319","criteria"),
+                     coef=c(coef(model.tmdl.wlr)[4],
+                            coef(model.money.wlr)[4],
+                            coef(model.criteria.wlr)[4]),
+                     coef.se=c(wlr.tmdl.summary$coefficients[4,2],
+                               wlr.money.summary$coefficients[4,2],
+                               wlr.criteria.summary$coefficients[4,2]))
   
-  output.wlr<-data.frame(policy.variable=c("319 dollars","Nutrient Criteria","tmdl"),
-                     coefficient=c(coef(model.money.wlr)[3],coef(model.criteria.wlr)[3],coef(model.tmdl.wlr)[3]))
   stream.tn.policy.wlr<-rbind(stream.tn.policy.wlr,output.wlr)
+  
+  slr.tmdl.summary<-summary(model.tmdl.slr)
+  slr.money.summary<-summary(model.money.slr)
+  slr.criteria.summary<-summary(model.criteria.slr)
+ 
+  output.slr<-data.frame(model.type="SLR",policy=c("tmdl","319","criteria"),
+                        coef=c(coef(model.tmdl.slr)[4],
+                               coef(model.money.slr)[4],
+                               coef(model.criteria.slr)[4]),
+                        coef.se=c(slr.tmdl.summary$coefficients[4,2],
+                                  slr.money.summary$coefficients[4,2],
+                                  slr.criteria.summary$coefficients[4,2]))
+  
+  stream.tn.policy.slr<-rbind(stream.tn.policy.slr,output.slr)
+  
   
   model.selction.slr<-data.frame(AICc(null.slr,model.money.slr,model.criteria.slr,model.tmdl.slr))
   model.selction.slr$model<-row.names(model.selction.slr)
@@ -391,13 +490,10 @@ for (i in 1:nsims){
   
   stream.tn.model.selction.slr<-rbind(stream.tn.model.selction.slr,model.selction.slr)
   
-  output.slr<-data.frame(policy.variable=c("319 dollars","Nutrient Criteria","tmdl"),
-                         coefficient=c(coef(model.money.slr)[3],coef(model.criteria.slr)[3],coef(model.tmdl.slr)[3]))
-  stream.tn.policy.slr<-rbind(stream.tn.policy.slr,output.slr)
+  
 }
 
-stream.tn.policy.wlr$nutrient<-"stream_TN"
-stream.tn.policy.slr$nutrient<-"stream_TN"
+
 summarySE(stream.tn.model.selction.wlr,measurevar = "delta.AICc",groupvars="model")
 summarySE(stream.tn.model.selction.slr,measurevar = "delta.AICc",groupvars="model")
 
@@ -441,7 +537,10 @@ for (i in 1:nsims){
   null.wlr<-lm(slope.wlr~ag.delta,data=d)
   null.slr<-lm(slope.slr~ag.delta,data=d)
   
-  null.output<-data.frame(ag.delta=coef(null.wlr)[2],rsq=r.squaredGLMM(null.wlr)[1])
+  null.wlr.summary<-summary(null.wlr)
+  
+  null.output<-data.frame(ag.delta=coef(null.wlr)[2],ag.delta.se=null.wlr.summary$coefficients[2,2],
+                          rsq=null.wlr.summary$r.squared)
   null.coef.stream.tp<-rbind(null.coef.stream.tp,null.output)
   
   model.selction.wlr<-data.frame(AICc(null.wlr,model.money.wlr,model.criteria.wlr,model.tmdl.wlr))
@@ -450,20 +549,64 @@ for (i in 1:nsims){
   
   stream.tp.model.selction.wlr<-rbind(stream.tp.model.selction.wlr,model.selction.wlr)
   
-  z.scores.models.wlr<-data.frame(model.type="WLR",tmdl.wlr.z=coef(model.tmdl.wlr.z)[3],
-                                  money.wlr.z=coef(model.money.wlr.z)[3],
-                                  criteria.wlr.z=coef(model.criteria.wlr.z)[3])
+  wlr.z.tmdl.summary<-summary(model.tmdl.wlr.z)
+  wlr.z.money.summary<-summary(model.money.wlr.z)
+  wlr.z.criteria.summary<-summary(model.criteria.wlr.z)
   
-  z.scores.models.slr<-data.frame(model.type="SLR",tmdl.slr.z=coef(model.tmdl.slr.z)[3],
-                                  money.slr.z=coef(model.money.slr.z)[3],
-                                  criteria.slr.z=coef(model.criteria.slr.z)[3])
+  
+  z.scores.models.wlr<-data.frame(model.type="WLR.z",policy=c("tmdl","319","criteria"),
+                                  coef=c(coef(model.tmdl.wlr.z)[3],
+                                         coef(model.money.wlr.z)[3],
+                                         coef(model.criteria.wlr.z)[3]),
+                                  coef.se=c(wlr.z.tmdl.summary$coefficients[3,2],
+                                            wlr.z.money.summary$coefficients[3,2],
+                                            wlr.z.criteria.summary$coefficients[3,2]))
+  
+  slr.z.tmdl.summary<-summary(model.tmdl.slr.z)
+  slr.z.money.summary<-summary(model.money.slr.z)
+  slr.z.criteria.summary<-summary(model.criteria.slr.z)
+  
+  z.scores.models.slr<-data.frame(model.type="SLR.z",policy=c("tmdl","319","criteria"),
+                                  coef=c(coef(model.tmdl.slr.z)[3],
+                                         coef(model.money.slr.z)[3],
+                                         coef(model.criteria.slr.z)[3]),
+                                  coef.se=c(slr.z.tmdl.summary$coefficients[3,2],
+                                            slr.z.money.summary$coefficients[3,2],
+                                            slr.z.criteria.summary$coefficients[3,2]))
+
+  
+  
   stream.tp.z.scores.slr<-rbind(stream.tp.z.scores.slr,z.scores.models.slr)
   stream.tp.z.scores.wlr<-rbind(stream.tp.z.scores.wlr,z.scores.models.wlr)
   
+  wlr.tmdl.summary<-summary(model.tmdl.wlr)
+  wlr.money.summary<-summary(model.money.wlr)
+  wlr.criteria.summary<-summary(model.criteria.wlr)
   
-  output.wlr<-data.frame(policy.variable=c("319 dollars","Nutrient Criteria","tmdl"),
-                     coefficient=c(coef(model.money.wlr)[3],coef(model.criteria.wlr)[3],coef(model.tmdl.wlr)[3]))
+  output.wlr<-data.frame(model.type="WLR",policy=c("tmdl","319","criteria"),
+                         coef=c(coef(model.tmdl.wlr)[3],
+                                coef(model.money.wlr)[3],
+                                coef(model.criteria.wlr)[3]),
+                         coef.se=c(wlr.tmdl.summary$coefficients[3,2],
+                                   wlr.money.summary$coefficients[3,2],
+                                   wlr.criteria.summary$coefficients[3,2]))
+  
+  
+  slr.tmdl.summary<-summary(model.tmdl.slr)
+  slr.money.summary<-summary(model.money.slr)
+  slr.criteria.summary<-summary(model.criteria.slr)
+  
+  output.slr<-data.frame(model.type="SLR",policy=c("tmdl","319","criteria"),
+                         coef=c(coef(model.tmdl.slr)[3],
+                                coef(model.money.slr)[3],
+                                coef(model.criteria.slr)[3]),
+                         coef.se=c(slr.tmdl.summary$coefficients[3,2],
+                                   slr.money.summary$coefficients[3,2],
+                                   slr.criteria.summary$coefficients[3,2]))
+  
+  
   stream.tp.policy.wlr<-rbind(stream.tp.policy.wlr,output.wlr)
+  stream.tp.policy.slr<-rbind(stream.tp.policy.slr,output.slr)
   
   model.selction.slr<-data.frame(AICc(null.slr,model.money.slr,model.criteria.slr,model.tmdl.slr))
   model.selction.slr$model<-row.names(model.selction.slr)
@@ -472,12 +615,9 @@ for (i in 1:nsims){
   stream.tp.model.selction.slr<-rbind(stream.tp.model.selction.slr,model.selction.slr)
   
   
-  output.slr<-data.frame(policy.variable=c("319 dollars","Nutrient Criteria","tmdl"),
-                     coefficient=c(coef(model.money.slr)[3],coef(model.criteria.slr)[3],coef(model.tmdl.slr)[3]))
-  stream.tp.policy.slr<-rbind(stream.tp.policy.slr,output.slr)
+  
 }
-stream.tp.policy.wlr$nutrient<-"stream_TP"
-stream.tp.policy.slr$nutrient<-"stream_TP"
+
 
 summarySE(stream.tp.model.selction.wlr,measurevar = "delta.AICc",groupvars="model")
 summarySE(stream.tp.model.selction.slr,measurevar = "delta.AICc",groupvars="model")
@@ -526,7 +666,13 @@ for (i in 1:nsims){
   null.wlr<-lm(slope.wlr~ag+fertilizer.delta+undeveloped,data=d)
   null.slr<-lm(slope.slr~ag+fertilizer.delta+undeveloped,data=d)
   
-  null.output<-data.frame(fertilizer.delta=coef(null.wlr)[2],undeveloped=coef(null.wlr)[3],rsq=r.squaredGLMM(null.wlr)[1])
+  null.wlr.summary<-summary(null.wlr)
+  
+  null.output<-data.frame(ag=coef(null.wlr)[2],ag.se=null.wlr.summary$coefficients[2,2],
+                          fertilizer.delta=coef(null.wlr)[2],
+                          fertilizer.delta.se=null.wlr.summary$coefficients[3,2],
+                          undeveloped=coef(null.wlr)[4],undeveloped.se=null.wlr.summary$coefficients[4,2],
+                          rsq=null.wlr.summary$r.squared)
 
   null.coef.lake.tp<-rbind(null.coef.lake.tp,null.output)
   
@@ -538,30 +684,72 @@ for (i in 1:nsims){
   model.selction.slr$model<-row.names(model.selction.slr)
   model.selction.slr$delta.AICc<-model.selction.slr$AICc-model.selction.slr[model.selction.slr$model=="null.slr","AICc"]
   
-  
-  
   lake.tp.model.selction.wlr<-rbind(lake.tp.model.selction.wlr,model.selction.wlr)
   lake.tp.model.selction.slr<-rbind(lake.tp.model.selction.slr,model.selction.slr)
   
-  z.scores.models.wlr<-data.frame(model.type="WLR",tmdl.wlr.z=coef(model.tmdl.wlr.z)[3],
-                                  money.wlr.z=coef(model.money.wlr.z)[3],
-                                  criteria.wlr.z=coef(model.criteria.wlr.z)[3])
+
+  wlr.z.tmdl.summary<-summary(model.tmdl.wlr.z)
+  wlr.z.money.summary<-summary(model.money.wlr.z)
+  wlr.z.criteria.summary<-summary(model.criteria.wlr.z)
   
-  z.scores.models.slr<-data.frame(model.type="SLR",tmdl.slr.z=coef(model.tmdl.slr.z)[3],
-                                  money.slr.z=coef(model.money.slr.z)[3],
-                                  criteria.slr.z=coef(model.criteria.slr.z)[3])
+  
+  z.scores.models.wlr<-data.frame(model.type="WLR.z",policy=c("tmdl","319","criteria"),
+                                  coef=c(coef(model.tmdl.wlr.z)[5],
+                                         coef(model.money.wlr.z)[5],
+                                         coef(model.criteria.wlr.z)[5]),
+                                  coef.se=c(wlr.z.tmdl.summary$coefficients[5,2],
+                                            wlr.z.money.summary$coefficients[5,2],
+                                            wlr.z.criteria.summary$coefficients[5,2]))
+  
+  slr.z.tmdl.summary<-summary(model.tmdl.slr.z)
+  slr.z.money.summary<-summary(model.money.slr.z)
+  slr.z.criteria.summary<-summary(model.criteria.slr.z)
+  
+  z.scores.models.slr<-data.frame(model.type="SLR.z",policy=c("tmdl","319","criteria"),
+                                  coef=c(coef(model.tmdl.slr.z)[5],
+                                         coef(model.money.slr.z)[5],
+                                         coef(model.criteria.slr.z)[5]),
+                                  coef.se=c(slr.z.tmdl.summary$coefficients[5,2],
+                                            slr.z.money.summary$coefficients[5,2],
+                                            slr.z.criteria.summary$coefficients[5,2]))
+  
+  
   lake.tp.z.scores.slr<-rbind(lake.tp.z.scores.slr,z.scores.models.slr)
   lake.tp.z.scores.wlr<-rbind(lake.tp.z.scores.wlr,z.scores.models.wlr)
   
-  output.slr<-data.frame(policy.variable=c("319 dollars","Nutrient Criteria","tmdl"),
-                     coefficient=c(coef(model.money.slr)[3],coef(model.criteria.slr)[3],coef(model.tmdl.slr)[3]))
-  output.wlr<-data.frame(policy.variable=c("319 dollars","Nutrient Criteria","tmdl"),
-                         coefficient=c(coef(model.money.wlr)[3],coef(model.criteria.wlr)[3],coef(model.tmdl.wlr)[3]))
+  
+  wlr.tmdl.summary<-summary(model.tmdl.wlr)
+  wlr.money.summary<-summary(model.money.wlr)
+  wlr.criteria.summary<-summary(model.criteria.wlr)
+  
+  output.wlr<-data.frame(model.type="WLR",policy=c("tmdl","319","criteria"),
+                         coef=c(coef(model.tmdl.wlr)[5],
+                                coef(model.money.wlr)[5],
+                                coef(model.criteria.wlr)[5]),
+                         coef.se=c(wlr.tmdl.summary$coefficients[5,2],
+                                   wlr.money.summary$coefficients[5,2],
+                                   wlr.criteria.summary$coefficients[5,2]))
+  
+  
+  slr.tmdl.summary<-summary(model.tmdl.slr)
+  slr.money.summary<-summary(model.money.slr)
+  slr.criteria.summary<-summary(model.criteria.slr)
+  
+  output.slr<-data.frame(model.type="SLR",policy=c("tmdl","319","criteria"),
+                         coef=c(coef(model.tmdl.slr)[5],
+                                coef(model.money.slr)[5],
+                                coef(model.criteria.slr)[5]),
+                         coef.se=c(slr.tmdl.summary$coefficients[5,2],
+                                   slr.money.summary$coefficients[5,2],
+                                   slr.criteria.summary$coefficients[5,2]))
+  
+  
+  
   lake.tp.policy.slr<-rbind(lake.tp.policy.slr,output.slr)
   lake.tp.policy.wlr<-rbind(lake.tp.policy.wlr,output.wlr)
 }
 
-lake.tp.policy.wlr$nutrient<-"lake_TP"
+
 
 summarySE(lake.tp.model.selction.wlr,measurevar = "delta.AICc",groupvars="model")
 
@@ -609,9 +797,14 @@ for (i in 1:nsims){
   null.wlr<-lm(slope.wlr~ag+feed.delta+fertilizer.delta+pop.delta+urban.delta,data=d)
   null.slr<-lm(slope.slr~ag+feed.delta+fertilizer.delta+pop.delta+urban.delta,data=d)
   
-  null.output<-data.frame(ag=coef(null.wlr)[2],feed.delta=coef(null.wlr)[3],
-                          fertilizer.delta=coef(null.wlr)[4],pop.delta=coef(null.wlr)[5],
-                          urban.delta=coef(null.wlr)[6],rsq=r.squaredGLMM(null.wlr)[1])
+  null.wlr.summary<-summary(null.wlr)
+  
+  null.output<-data.frame(ag=coef(null.wlr)[2],ag.se=null.wlr.summary$coefficients[2,2],
+                          feed.delta=coef(null.wlr)[3],feed.delta.se=null.wlr.summary$coefficients[3,2],
+                          fertilizer.delta=coef(null.wlr)[4],fertilizer.delta.se=null.wlr.summary$coefficients[4,2],
+                          pop.delta=coef(null.wlr)[5],pop.delta.se=null.wlr.summary$coefficients[5,2],
+                          urban.delta=coef(null.wlr)[6],urban.delta.se=null.wlr.summary$coefficients[6,2],
+                          rsq=null.wlr.summary$r.squared)
   
   null.coef.lake.tn<-rbind(null.coef.lake.tn,null.output)
   
@@ -623,76 +816,75 @@ for (i in 1:nsims){
   model.selction.slr$model<-row.names(model.selction.slr)
   model.selction.slr$delta.AICc<-model.selction.slr$AICc-model.selction.slr[model.selction.slr$model=="null.slr","AICc"]
   
-  
-  
   lake.tn.model.selction.wlr<-rbind(lake.tn.model.selction.wlr,model.selction.wlr)
   lake.tn.model.selction.slr<-rbind(lake.tn.model.selction.slr,model.selction.slr)
   
-  z.scores.models.wlr<-data.frame(model.type="WLR",tmdl.wlr.z=coef(model.tmdl.wlr.z)[3],
-                                  money.wlr.z=coef(model.money.wlr.z)[3],
-                                  criteria.wlr.z=coef(model.criteria.wlr.z)[3])
   
-  z.scores.models.slr<-data.frame(model.type="SLR",tmdl.slr.z=coef(model.tmdl.slr.z)[3],
-                                  money.slr.z=coef(model.money.slr.z)[3],
-                                  criteria.slr.z=coef(model.criteria.slr.z)[3])
+  wlr.z.tmdl.summary<-summary(model.tmdl.wlr.z)
+  wlr.z.money.summary<-summary(model.money.wlr.z)
+  wlr.z.criteria.summary<-summary(model.criteria.wlr.z)
+  
+  
+  z.scores.models.wlr<-data.frame(model.type="WLR.z",policy=c("tmdl","319","criteria"),
+                                  coef=c(coef(model.tmdl.wlr.z)[7],
+                                         coef(model.money.wlr.z)[7],
+                                         coef(model.criteria.wlr.z)[7]),
+                                  coef.se=c(wlr.z.tmdl.summary$coefficients[7,2],
+                                            wlr.z.money.summary$coefficients[7,2],
+                                            wlr.z.criteria.summary$coefficients[7,2]))
+  
+  slr.z.tmdl.summary<-summary(model.tmdl.slr.z)
+  slr.z.money.summary<-summary(model.money.slr.z)
+  slr.z.criteria.summary<-summary(model.criteria.slr.z)
+  
+  z.scores.models.slr<-data.frame(model.type="SLR.z",policy=c("tmdl","319","criteria"),
+                                  coef=c(coef(model.tmdl.slr.z)[7],
+                                         coef(model.money.slr.z)[7],
+                                         coef(model.criteria.slr.z)[7]),
+                                  coef.se=c(slr.z.tmdl.summary$coefficients[7,2],
+                                            slr.z.money.summary$coefficients[7,2],
+                                            slr.z.criteria.summary$coefficients[7,2]))
+
+  
   lake.tn.z.scores.slr<-rbind(lake.tp.z.scores.slr,z.scores.models.slr)
   lake.tn.z.scores.wlr<-rbind(lake.tp.z.scores.wlr,z.scores.models.wlr)
   
-  output.slr<-data.frame(policy.variable=c("319 dollars","Nutrient Criteria","tmdl"),
-                         coefficient=c(coef(model.money.slr)[3],coef(model.criteria.slr)[3],coef(model.tmdl.slr)[3]))
-  output.wlr<-data.frame(policy.variable=c("319 dollars","Nutrient Criteria","tmdl"),
-                         coefficient=c(coef(model.money.wlr)[3],coef(model.criteria.wlr)[3],coef(model.tmdl.wlr)[3]))
+  wlr.tmdl.summary<-summary(model.tmdl.wlr)
+  wlr.money.summary<-summary(model.money.wlr)
+  wlr.criteria.summary<-summary(model.criteria.wlr)
+  
+  output.wlr<-data.frame(model.type="WLR",policy=c("tmdl","319","criteria"),
+                         coef=c(coef(model.tmdl.wlr)[7],
+                                coef(model.money.wlr)[7],
+                                coef(model.criteria.wlr)[7]),
+                         coef.se=c(wlr.tmdl.summary$coefficients[7,2],
+                                   wlr.money.summary$coefficients[7,2],
+                                   wlr.criteria.summary$coefficients[7,2]))
+  
+  
+  slr.tmdl.summary<-summary(model.tmdl.slr)
+  slr.money.summary<-summary(model.money.slr)
+  slr.criteria.summary<-summary(model.criteria.slr)
+  
+  output.slr<-data.frame(model.type="SLR",policy=c("tmdl","319","criteria"),
+                         coef=c(coef(model.tmdl.slr)[7],
+                                coef(model.money.slr)[7],
+                                coef(model.criteria.slr)[7]),
+                         coef.se=c(slr.tmdl.summary$coefficients[7,2],
+                                   slr.money.summary$coefficients[7,2],
+                                   slr.criteria.summary$coefficients[7,2]))
+  
+  
   lake.tn.policy.slr<-rbind(lake.tn.policy.slr,output.slr)
   lake.tn.policy.wlr<-rbind(lake.tn.policy.wlr,output.wlr)
 }
 
-lake.tn.policy.wlr$nutrient<-"lake_TN"
+
 
 summarySE(lake.tn.model.selction.wlr,measurevar = "delta.AICc",groupvars="model")
 
 ##### merging all the policy data to make plots
-policy_effects<-bind_rows(lake.tn.policy.wlr,lake.tp.policy.wlr,stream.tn.policy.wlr,stream.tp.policy.wlr,
-                          stream.nitrate.policy.wlr,stream.ammonium.policy.wlr)
 
-
-alt.effect.size<-data.frame(policy.variable=c("319 dollars","Nutrient Criteria","tmdl"),
-                            best.state=c(max(policy.loading$total.money.sq.km),26,max(policy.loading$tmdl.sites.sq.km, na.rm=T)))
-
-policy_effects_alt<-merge(policy_effects,alt.effect.size,by="policy.variable")
-policy_effects_alt$decade.nutrient.change<-policy_effects_alt$best.state*10*policy_effects_alt$coefficient
-
-################## reviewing policy effects
-
-z_df <- policy_effects_alt %>% group_by(policy.variable,nutrient) %>% summarize(mean=mean(coefficient), sd=sd(coefficient)) %>% as.data.frame()
-
-# policy_effects_alt <- policy_effects_alt %>% mutate(z_scored = case_when(
-#   policy.variable=="tmdl"~ (coefficient-z_df[3,2])/z_df[3,3],
-#   policy.variable=="Nutrient Criteria"~ (coefficient-z_df[2,2])/z_df[2,3],
-#   policy.variable=="319 dollars"~ (coefficient-z_df[1,2])/z_df[1,3]
-# )) 
-# 
-# policy_effects_alt %>% 
-#   group_by(policy.variable, nutrient) %>% 
-#   summarize(bottom= quantile(coefficient, 0.025), 
-#             first= quantile(coefficient, 0.25), 
-#             median= quantile(coefficient, 0.5), 
-#             third= quantile(coefficient, 0.75), 
-#             top=quantile(coefficient, 0.975))
-# 
-# 
-# policy_effects_alt$nutrient_fct <- factor(policy_effects_alt$nutrient, 
-#                                           levels=c("lake_TN", "lake_TP", "stream_ammonium", "stream_nitrate", "stream_TN", 
-#                                                                          "stream_TP"), 
-#                                           labels= c("Lake TN", "Lake TP", "Stream NH4+", "Stream NO3-", 
-#                                                     "Stream TN","Stream TP"))
-
-policy_effects_alt %>% 
-  mutate(nutrient_fct=as.factor(nutrient), ) %>% 
-  ggplot(aes(x=coefficient, y=policy.variable))+
-  geom_density_ridges(scale=1, rel_min_height=0.01) +
-  facet_grid(rows=vars(nutrient_fct))+
-  theme_bw()
-  
 ######################### z scored predictors
 lake.tn.z.scores.wlr$nutrient_type<-"Lake TN"
 lake.tp.z.scores.wlr$nutrient_type<-"Lake TP"
@@ -703,7 +895,56 @@ stream.ammonium.z.scores.wlr$nutrient_type<-"Stream Ammonium"
 
 z_scores_plot<-bind_rows(lake.tn.z.scores.wlr,lake.tp.z.scores.wlr,stream.tn.z.scores.wlr,stream.tp.z.scores.wlr,
                           stream.nitrate.z.scores.wlr,stream.ammonium.z.scores.wlr)
-z_scores_plot_melt<-melt(z_scores_plot)
+z_scores_plot_new<-data.frame(policy=z_scores_plot$policy,nutrient_type=z_scores_plot$nutrient_type,
+                              new_coef=rnorm(nrow(z_scores_plot),z_scores_plot$coef,z_scores_plot$coef.se)) # does this do the randomization right?
+z_scores_plot_melt<-melt(z_scores_plot_new)
+
+write.csv(z_scores_plot_melt,"./data/clean_data/z_scores_estiamtes.csv")
+
+#### non z-scored predictors
+
+lake.tn.policy.wlr$nutrient_type<-"Lake TN"
+lake.tp.policy.wlr$nutrient_type<-"Lake TP"
+stream.tn.policy.wlr$nutrient_type<-"Stream TN"
+stream.tp.policy.wlr$nutrient_type<-"Stream TP"
+stream.nitrate.policy.wlr$nutrient_type<-"Stream Nitrate"
+stream.ammonium.policy.wlr$nutrient_type<-"Stream Ammonium"
+
+non_z_summary<-bind_rows(lake.tn.policy.wlr,lake.tp.policy.wlr,stream.tn.policy.wlr,stream.tp.policy.wlr,
+                         stream.nitrate.policy.wlr,stream.ammonium.policy.wlr)
+non_z_summary_new<-data.frame(policy=non_z_summary$policy,nutreint_type=non_z_summary$nutrient_type,new_value=rnorm(nrow(non_z_summary),non_z_summary$coef,non_z_summary$coef.se))
+non_z_melt<-melt(non_z_summary_new)
+
+write.csv(non_z_melt,"./data/clean_data/non_z_scored_estiamtes.csv")
+
+#### loading variables
+loading.lake.tn<-melt(data.frame(nutrient_type="Lake TN",ag=rnorm(nsims,null.coef.lake.tn$ag,null.coef.lake.tn$ag.se),
+                            feed.delta=rnorm(nsims,null.coef.lake.tn$feed.delta,null.coef.lake.tn$feed.delta.se),
+                            fertilizer.delta=rnorm(nsims,null.coef.lake.tn$fertilizer.delta,null.coef.lake.tn$fertilizer.delta.se),
+                            pop.delta=rnorm(nsims,null.coef.lake.tn$pop.delta,null.coef.lake.tn$pop.delta.se),
+                            urban.delta=rnorm(nsims,null.coef.lake.tn$urban.delta,null.coef.lake.tn$urban.delta.se),
+                            rsq=null.coef.lake.tn$rsq))
+loading.lake.tp<-melt(data.frame(nutrient_type="Lake TP",ag=rnorm(nsims,null.coef.lake.tp$ag,null.coef.lake.tp$ag.se),
+                                 fertilizer.delta=rnorm(nsims,null.coef.lake.tp$fertilizer.delta,null.coef.lake.tp$fertilizer.delta.se),
+                                 undeveloped=rnorm(nsims,null.coef.lake.tp$undeveloped,null.coef.lake.tp$undeveloped.se),
+                                 rsq=null.coef.lake.tp$rsq))
+loading.stream.tn<-melt(data.frame(nutrient_type="Stream TN",feed=rnorm(nsims,null.model.fit.stream.tn$feed,null.model.fit.stream.tn$feed.se),
+                        feed.delta=rnorm(nsims,null.model.fit.stream.tn$feed.delta,null.model.fit.stream.tn$feed.delta.se),
+                        rsq=null.model.fit.stream.tn$rsq))
+loading.stream.tp<-melt(data.frame(nutrient_type="Stream TP",
+                                   ag.delta=rnorm(nsims,null.coef.stream.tp$ag.delta,null.coef.stream.tp$ag.delta.se),
+                                   rsq=null.coef.stream.tp$rsq))
+loading.stream.nitrate<-melt(data.frame(nutrient_type="Stream nitrate",
+                                        feed=rnorm(nsims,null.coef.stream.ammonium$feed,null.coef.stream.ammonium$feed.se),
+                                        urban=rnorm(nsims,null.coef.stream.ammonium$urban.delta,null.coef.stream.ammonium$urban.delta.se),
+                                                    rsq=null.coef.stream.ammonium$rsq))
+loading.stream.ammonium<-melt(data.frame(nutrient_type="Stream ammonium",
+                                         feed=rnorm(nsims,null.coef.stream.no3$feed,null.coef.stream.no3$feed.se),
+                                         rsq=null.coef.stream.no3$rsq))
+loading_coeficients<-bind_rows(loading.lake.tn,loading.lake.tp,loading.stream.tn,loading.stream.tp,
+                               loading.stream.nitrate,loading.stream.ammonium)
+
+write.csv(loading_coeficients,"./data/clean_data/loading_variables.csv")
 
 tiff(filename="./figures/z_scored_predictors.tiff",units="in",res=600,width=8,height=12,compression="lzw")
 z_scores_plot_melt %>% 
@@ -729,28 +970,4 @@ cor(policy.loading$lake.p.criteria,policy.loading$PC2, use="complete.obs")
 
 
 
-### HOW ARE WE USING THE DELTA AICc?
-### Should we use mean from the runs?
-### Need to summarize best state units 
 
-
-############## Loading variables
-null.coef.lake.tn$type<-"Lake TN"
-null.coef.lake.tp$type<-"Lake TP"
-null.coef.stream.ammonium$type<-"Stream Ammonium"
-null.coef.stream.no3$type<-"Stream Nitrate"
-null.coef.stream.tp$type<-"Stream TP"
-null.model.fit.stream.tn$type<-"Stream TN"
-
-
-predictor.estimates<-bind_rows(melt(null.coef.lake.tn),melt(null.coef.lake.tp),
-                               melt(null.coef.stream.ammonium),melt(null.coef.stream.no3),
-                               melt(null.coef.stream.tp),melt(null.model.fit.stream.tn))
-
-predictor.estimates.sum<-aggregate(value~type+variable,predictor.estimates,quantile,c(0.025,0.5,0.975))
-
-
-ggplot(predictor.estimates.sum[predictor.estimates.sum$variable!="rsq",],
-       aes(x=value[,2],y=variable,color=type))+geom_point(size=3, position=position_dodge(width=0.3))+theme_classic()+
-  xlab("Paramater estimate")+ylab("")+geom_vline(xintercept = 0,linetype="dashed")+
-  geom_errorbar(aes(xmin=value[,1],xmax=value[,3]),width=0.0001, position=position_dodge(width=0.3))
