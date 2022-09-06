@@ -144,7 +144,7 @@ stream.nitrate.z.scores.wlr<-data.frame()
 
 null.coef.stream.no3<-data.frame()
 
-nsims<-1000
+nsims<-10000
 
 for (i in 1:nsims){
   d<-difference_no3

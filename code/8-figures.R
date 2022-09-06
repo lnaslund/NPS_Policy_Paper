@@ -152,27 +152,71 @@ aggregate(value~nutrient_type,rsq,mean) ### median r2 values of models
 
 loading2<-loading[loading$variable!="rsq",]
 
-loading.summary<-summarySE(loading2,measurevar = "value",groupvars=c("nutrient_type","variable"))
+loading.means<-aggregate(value~variable+nutrient_type,loading2,mean)
+loading.lower<-aggregate(value~variable+nutrient_type,loading2,quantile,0.025)
+names(loading.lower)[names(loading.lower)=="value"]<-"lower.ci"
+loading.upper<-aggregate(value~variable+nutrient_type,loading2,quantile,0.975)
+names(loading.upper)[names(loading.upper)=="value"]<-"upper.ci"
+
+loading3<-merge(loading.means,loading.upper,by=c("variable","nutrient_type"))
+loading.summary<-merge(loading3,loading.lower,by=c("variable","nutrient_type"))
 
 cbbPalette <- c("#000000", "#E69F00", "#56B4E9", "#009E73", "#F0E442", "#D55E00")
 
-loading.plot<-ggplot(loading.summary,aes(x=value,y=variable,color=nutrient_type))+geom_point(size=2)+
-  geom_errorbarh(aes(xmin=value-ci,xmax=value+ci),height=0.001)+theme_classic()+
-  geom_vline(xintercept = 0,linetype="dashed")+ylab("")+xlab("Paramater Estimate")+
-  theme(text = element_text(size = 20),legend.position = c(0.2,0.85))+
-  scale_color_manual(values = cbbPalette,name="")
+loading.plot<-ggplot(loading.summary,aes(x=value,y=variable,color=nutrient_type))+
+  geom_point(size=2,position=position_dodge(width=0.3))+
+  geom_errorbarh(aes(xmin=lower.ci,xmax=upper.ci),height=0.001,position=position_dodge(width=0.3))+
+  theme_classic()+
+  geom_vline(xintercept = 0,linetype="dashed")+ylab("")+xlab("Parameter Estimate")+
+  theme(text = element_text(size = 20),legend.position = c(0.12,0.9),legend.text.align = 0)+
+  scale_color_manual(values = cbbPalette,name="",labels=c('Lake TN', 'Lake TP',
+                                                          expression("Stream NH"[4]),
+                                                          expression("Stream NO"[3]),
+                                                          "Stream TN",
+                                                          "Stream TP"))+
+  scale_y_discrete(labels=c("urban.delta" = expression(Delta*"Urban"), "urban" = "Urban",
+                            "undeveloped" = "Undeveloped","pop.delta"=expression(Delta*"Population"),
+                            "fertilizer.delta"=expression(Delta*"Fertilizer"),
+                            "feed.delta"=expression(Delta*"Animal feed"),
+                            "feed"="Animal Feed","ag.delta"=expression(Delta*"Agriculture"),
+                            "ag"="Agriculture"))
 loading.plot
+
+
+jpeg(filename="./figures/loading_coef.jpeg",units="in",res=600,width=8,height=10)
+loading.plot
+dev.off()
+
 
 ###################### plotting z scored coeficients
 
 zs<-read.csv("./data/clean_data/z_scores_estiamtes.csv")
 
-z.summary<-summarySE(zs,measurevar = "value",groupvars=c("policy","nutrient_type"))
+z.means<-aggregate(value~policy+nutrient_type,zs,mean)
+z.lower<-aggregate(value~policy+nutrient_type,zs,quantile,0.025)
+names(z.lower)[names(z.lower)=="value"]<-"lower.ci"
+z.upper<-aggregate(value~policy+nutrient_type,zs,quantile,0.975)
+names(z.upper)[names(z.upper)=="value"]<-"upper.ci"
 
-policy.plot<-ggplot(z.summary,aes(x=value,y=nutrient_type,color=policy))+geom_point(size=2,position=position_dodge(width=0.3))+
-  geom_errorbarh(aes(xmin=value-ci,xmax=value+ci),height=0.001,position=position_dodge(width=0.3))+
+zs2<-merge(z.means,z.lower,by=c("nutrient_type","policy"))
+z.summary<-merge(zs2,z.upper,by=c("nutrient_type","policy"))
+
+policy.plot<-ggplot(z.summary,aes(x=value,y=nutrient_type,color=policy))+geom_point(size=3,position=position_dodge(width=0.3))+
+  geom_errorbarh(aes(xmin=lower.ci,xmax=upper.ci),height=0.0001,position=position_dodge(width=0.3))+
   theme_classic()+
-  geom_vline(xintercept = 0,linetype="dashed")+ylab("")+xlab("Paramater Estimate")+
-  theme(text = element_text(size = 20),legend.position = c(0.15,0.95))+
-  scale_color_manual(values = cbbPalette,name="")
+  geom_vline(xintercept = 0,linetype="dashed")+ylab("")+xlab("Parameter Estimate")+
+  theme(text = element_text(size = 20),legend.position = c(0.17,0.95))+
+  scale_color_manual(values = cbbPalette,name="",labels=c('319 funding', 'Nutrient Criteria',"TMDL site visits"))
 policy.plot
+
+jpeg(filename="./figures/policy_coef.jpeg",units="in",res=600,width=8,height=10)
+policy.plot
+dev.off()
+
+###########
+
+nz<-read.csv("./data/clean_data/non_z_scored_estiamtes.csv")
+
+summarized.non.z<-aggregate(value~policy+nutreint_type,nz,quantile,c(0.025,0.5,0.975))
+
+write.csv(summarized.non.z,"./data/clean_data/non_z_scored_estiamtes_summarized.csv")
